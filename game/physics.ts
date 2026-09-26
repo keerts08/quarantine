@@ -15,5 +15,5 @@ export function distToRect(p: Vec2, r: RectZone) {
 }
 
 export function rectCenter(r: RectZone): Vec2 {
-    return { x: r.x + r.w / 2, y: r.y + r.h / 2};
+  return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
 }

@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import { BARRICADE_COST, type BarricadeLevel, type EntryId, type EntryState, type GameState, type MaterialPile, type Vec2 } from "./types";
+import {
+  BARRICADE_COST,
+  type BarricadeLevel,
+  type EntryId,
+  type EntryState,
+  type GameState,
+  type MaterialPile,
+  type Vec2,
+} from "./types";
 import { ENTRY_DEFS, MATERIAL_PILE_DEFS, PLAYER_START } from "./layouts";
 
 const MAX_LOG = 40;
@@ -11,7 +19,11 @@ function freshEntries(): Record<EntryId, EntryState> {
 }
 
 function freshPiles(): MaterialPile[] {
-  return MATERIAL_PILE_DEFS.map((d) => ({ id: d.id, pos: d.pos, boards: d.boards }));
+  return MATERIAL_PILE_DEFS.map((d) => ({
+    id: d.id,
+    pos: d.pos,
+    boards: d.boards,
+  }));
 }
 
 function initialState(): GameState {
@@ -20,7 +32,9 @@ function initialState(): GameState {
     player: { pos: { ...PLAYER_START }, boards: 4 },
     entries: freshEntries(),
     piles: freshPiles(),
-    log: ["You've boarded yourself into the house. Something is already outside."],
+    log: [
+      "You've boarded yourself into the house. Something is already outside.",
+    ],
   };
 }
 
@@ -47,7 +61,10 @@ export const useGameStore = create<GameStore>((set) => ({
       return {
         piles: s.piles.map((p) => (p.id === pileId ? { ...p, boards: 0 } : p)),
         player: { ...s.player, boards: s.player.boards + gained },
-        log: [...s.log.slice(-(MAX_LOG - 1)), `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`],
+        log: [
+          ...s.log.slice(-(MAX_LOG - 1)),
+          `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`,
+        ],
       };
     }),
 
@@ -62,7 +79,10 @@ export const useGameStore = create<GameStore>((set) => ({
       return {
         player: { ...s.player, boards: s.player.boards - cost },
         entries: { ...s.entries, [entryId]: { barricadeLevel: nextLevel } },
-        log: [...s.log.slice(-(MAX_LOG - 1)), `Reinforced the ${def.label} (level ${nextLevel}).`],
+        log: [
+          ...s.log.slice(-(MAX_LOG - 1)),
+          `Reinforced the ${def.label} (level ${nextLevel}).`,
+        ],
       };
     }),
 }));

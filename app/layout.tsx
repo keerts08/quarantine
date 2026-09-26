@@ -6,27 +6,27 @@ import { cn } from "@/lib/utils";
 const display = Oswald({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"]
-})
+  weight: ["500", "600", "700"],
+});
 
 const body = IBM_Plex_Mono({
   variable: "--font-body",
   subsets: ["latin"],
-  weight: ["400", "500"]
-})
+  weight: ["400", "500"],
+});
 
 export const metadata: Metadata = {
   title: "Quarantine",
-  description: "Something wants to enter. Board your doors, hold the line and survive the night.",
+  description:
+    "Something wants to enter. Board your doors, hold the line and survive the night.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={cn("h-full", display.variable, body.variable)}
-    >
-      <body className="min-h-full bg-void text-ink font-[family-name:var(--font-body)]">{children}</body>
+    <html lang="en" className={cn("h-full", display.variable, body.variable)}>
+      <body className="min-h-full bg-void text-ink font-[family-name:var(--font-body)]">
+        {children}
+      </body>
     </html>
   );
 }

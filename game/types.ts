@@ -11,11 +11,7 @@ export interface RectZone {
 }
 
 export type EntryId =
-  | "frontDoor"
-  | "backDoor"
-  | "livingWindow"
-  | "kitchenWindow"
-  | "atticWindow";
+  "frontDoor" | "backDoor" | "livingWindow" | "kitchenWindow" | "atticWindow";
 
 export type EntryKind = "door" | "window";
 

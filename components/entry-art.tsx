@@ -45,7 +45,12 @@ function drawPlank(
   ctx.restore();
 }
 
-function drawBracket(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawBracket(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+) {
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = "#6b6a63";
@@ -79,7 +84,12 @@ function drawVoidGap(ctx: CanvasRenderingContext2D, def: EntryDef, t: number) {
   ctx.restore();
 }
 
-export function drawEntry(ctx: CanvasRenderingContext2D, def: EntryDef, state: EntryState, t: number) {
+export function drawEntry(
+  ctx: CanvasRenderingContext2D,
+  def: EntryDef,
+  state: EntryState,
+  t: number,
+) {
   const { x, y, w, h } = def.zone;
   const horizontal = isHorizontalGap(def);
 
@@ -98,18 +108,52 @@ export function drawEntry(ctx: CanvasRenderingContext2D, def: EntryDef, state: E
 
   if (level >= 1) {
     const offset = shortSpan * 0.18;
-    drawPlank(ctx, cx, cy + (horizontal ? offset : 0), plankLen, plankThick, baseAngle + 0.05);
+    drawPlank(
+      ctx,
+      cx,
+      cy + (horizontal ? offset : 0),
+      plankLen,
+      plankThick,
+      baseAngle + 0.05,
+    );
   }
   if (level >= 2) {
     const offset = shortSpan * -0.18;
-    drawPlank(ctx, cx, cy + (horizontal ? offset : 0), plankLen, plankThick, baseAngle - 0.05);
-    drawPlank(ctx, cx, cy, plankLen * 0.85, plankThick * 0.8, baseAngle + (horizontal ? 0.22 : Math.PI / 2 + 0.22));
+    drawPlank(
+      ctx,
+      cx,
+      cy + (horizontal ? offset : 0),
+      plankLen,
+      plankThick,
+      baseAngle - 0.05,
+    );
+    drawPlank(
+      ctx,
+      cx,
+      cy,
+      plankLen * 0.85,
+      plankThick * 0.8,
+      baseAngle + (horizontal ? 0.22 : Math.PI / 2 + 0.22),
+    );
   }
   if (level >= 3) {
-    drawPlank(ctx, cx, cy, plankLen, plankThick * 0.9, baseAngle + (horizontal ? -0.22 : Math.PI / 2 - 0.22));
+    drawPlank(
+      ctx,
+      cx,
+      cy,
+      plankLen,
+      plankThick * 0.9,
+      baseAngle + (horizontal ? -0.22 : Math.PI / 2 - 0.22),
+    );
     const bracketPositions = horizontal
-      ? [{ x: x + 6, y: y + h / 2 }, { x: x + w - 6, y: y + h / 2 }]
-      : [{ x: x + w / 2, y: y + 6 }, { x: x + w / 2, y: y + h - 6 }];
+      ? [
+          { x: x + 6, y: y + h / 2 },
+          { x: x + w - 6, y: y + h / 2 },
+        ]
+      : [
+          { x: x + w / 2, y: y + 6 },
+          { x: x + w / 2, y: y + h - 6 },
+        ];
     for (const p of bracketPositions) drawBracket(ctx, p.x, p.y, 7);
   }
 

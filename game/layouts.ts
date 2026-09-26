@@ -20,7 +20,12 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Front Door",
     kind: "door",
     facing: "down",
-    zone: { x: CANVAS_W / 2 - 45, y: CANVAS_H - WALL_THICKNESS, w: 90, h: WALL_THICKNESS },
+    zone: {
+      x: CANVAS_W / 2 - 45,
+      y: CANVAS_H - WALL_THICKNESS,
+      w: 90,
+      h: WALL_THICKNESS,
+    },
   },
   {
     id: "backDoor",
@@ -41,7 +46,12 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Kitchen Window",
     kind: "window",
     facing: "right",
-    zone: { x: CANVAS_W - WALL_THICKNESS, y: CANVAS_H - 250, w: WALL_THICKNESS, h: 90 },
+    zone: {
+      x: CANVAS_W - WALL_THICKNESS,
+      y: CANVAS_H - 250,
+      w: WALL_THICKNESS,
+      h: 90,
+    },
   },
   {
     id: "atticWindow",
