@@ -1,12 +1,15 @@
-import { ENTRY_DEFS } from "@/game/layouts";
+"use client";
+
 import { useGameStore } from "@/game/store";
+import { ENTRY_DEFS } from "@/game/layouts";
 
 export default function Hud() {
   const boards = useGameStore((s) => s.player.boards);
   const entries = useGameStore((s) => s.entries);
+
   return (
-    <div className="flex items-center justify-between gap-6 border-b border-line uppercase tracking-widest text-sm">
-      <span className="text-accent">Prepare the room</span>
+    <div className="flex items-center justify-between gap-6 border-b border-line bg-panel/80 px-5 py-3 font-[family-name:var(--font-display)] uppercase tracking-widest text-sm">
+      <span className="text-accent">Prepare the house</span>
       <div className="flex items-center gap-1.5">
         {ENTRY_DEFS.map((def) => {
           const level = entries[def.id].barricadeLevel;
