@@ -34,8 +34,23 @@ export default function RoomCanvas() {
   const posRef = useRef<Vec2>({ ...useGameStore.getState().player.pos });
   const movingRef = useRef(false);
 
+  useEffect(() => {
+    let prevPhase = useGameStore.getState().phase;
+    const unsub = useGameStore.subscribe((state) => {
+      if (
+        state.phase === "day" &&
+        (prevPhase === "title" || prevPhase === "gameover")
+      ) {
+        posRef.current = { ...state.player.pos };
+      }
+      prevPhase = state.phase;
+    });
+    return unsub;
+  }, []);
+
   const findNearby = useCallback(() => {
     const s = useGameStore.getState();
+    if (s.phase === "combat") return null;
     let best: { kind: "pile" | "entry"; id: string; d: number } | null = null;
 
     for (const pile of s.piles) {
@@ -45,7 +60,10 @@ export default function RoomCanvas() {
         best = { kind: "pile", id: pile.id, d };
     }
     for (const def of ENTRY_DEFS) {
-      if (s.entries[def.id].barricadeLevel >= 3) continue;
+      if (s.night < def.activeFromNight) continue;
+      const entry = s.entries[def.id];
+      if (entry.underAttack || entry.breached) continue;
+      if (entry.barricadeLevel >= 3) continue;
       const d = distToRect(posRef.current, def.zone);
       if (d <= INTERACT_RANGE && (!best || d < best.d))
         best = { kind: "entry", id: def.id, d };
@@ -92,35 +110,39 @@ export default function RoomCanvas() {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const s = useGameStore.getState();
-      if (s.phase !== "day") return;
+      if (s.phase === "day" || s.phase === "night") {
+        let dx = 0;
+        let dy = 0;
+        if (keysDown.current.has("w") || keysDown.current.has("arrowup"))
+          dy -= 1;
+        if (keysDown.current.has("s") || keysDown.current.has("arrowdown"))
+          dy += 1;
+        if (keysDown.current.has("a") || keysDown.current.has("arrowleft"))
+          dx -= 1;
+        if (keysDown.current.has("d") || keysDown.current.has("arrowright"))
+          dx += 1;
 
-      let dx = 0;
-      let dy = 0;
-      if (keysDown.current.has("w") || keysDown.current.has("arrowup")) dy -= 1;
-      if (keysDown.current.has("s") || keysDown.current.has("arrowdown"))
-        dy += 1;
-      if (keysDown.current.has("a") || keysDown.current.has("arrowleft"))
-        dx -= 1;
-      if (keysDown.current.has("d") || keysDown.current.has("arrowright"))
-        dx += 1;
-
-      movingRef.current = dx !== 0 || dy !== 0;
-      if (movingRef.current) {
-        const len = Math.hypot(dx, dy) || 1;
-        posRef.current = {
-          x: clamp(
-            posRef.current.x + (dx / len) * PLAYER_SPEED * dt,
-            ROOM.x + PLAYER_RADIUS,
-            ROOM.x + ROOM.w - PLAYER_RADIUS,
-          ),
-          y: clamp(
-            posRef.current.y + (dy / len) * PLAYER_SPEED * dt,
-            ROOM.y + PLAYER_RADIUS,
-            ROOM.y + ROOM.h - PLAYER_RADIUS,
-          ),
-        };
-        s.setPlayerPos(posRef.current);
+        movingRef.current = dx !== 0 || dy !== 0;
+        if (movingRef.current) {
+          const len = Math.hypot(dx, dy) || 1;
+          posRef.current = {
+            x: clamp(
+              posRef.current.x + (dx / len) * PLAYER_SPEED * dt,
+              ROOM.x + PLAYER_RADIUS,
+              ROOM.x + ROOM.w - PLAYER_RADIUS,
+            ),
+            y: clamp(
+              posRef.current.y + (dy / len) * PLAYER_SPEED * dt,
+              ROOM.y + PLAYER_RADIUS,
+              ROOM.y + ROOM.h - PLAYER_RADIUS,
+            ),
+          };
+          s.setPlayerPos(posRef.current);
+        }
       }
+
+      if (s.phase === "night") s.tickNight(dt);
+      if (s.phase === "combat") s.tickCombat(dt);
     }, 1000 / 60);
 
     let raf = 0;
@@ -135,13 +157,14 @@ export default function RoomCanvas() {
       t: number,
     ) {
       const s = useGameStore.getState();
+      const isNight = s.phase === "night" || s.phase === "combat";
 
-      ctx.fillStyle = "#1c2317";
+      ctx.fillStyle = isNight ? "#141810" : "#1c2317";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const floorGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      floorGrad.addColorStop(0, "#2c3423");
-      floorGrad.addColorStop(1, "#242b1c");
+      floorGrad.addColorStop(0, isNight ? "#20261b" : "#2c3423");
+      floorGrad.addColorStop(1, isNight ? "#181d14" : "#242b1c");
       ctx.fillStyle = floorGrad;
       ctx.fillRect(ROOM.x, ROOM.y, ROOM.w, ROOM.h);
 
@@ -167,7 +190,11 @@ export default function RoomCanvas() {
         if (pile.boards <= 0) continue;
         drawPileArt(ctx, pile.pos.x, pile.pos.y, pile.boards);
       }
-      for (const def of ENTRY_DEFS) drawEntry(ctx, def, s.entries[def.id], t);
+
+      for (const def of ENTRY_DEFS) {
+        if (s.night < def.activeFromNight) continue;
+        drawEntry(ctx, def, s.entries[def.id], t, isNight);
+      }
 
       drawPlayer(ctx, posRef.current.x, posRef.current.y, t, movingRef.current);
 
@@ -178,7 +205,9 @@ export default function RoomCanvas() {
         ctx.textAlign = "center";
         ctx.fillStyle = "#c7d94a";
         const label =
-          nearby.kind === "pile" ? "[E] Salvage boards" : "[E] Board up";
+          nearby.kind === "pile"
+            ? "[E] Salvage boards"
+            : `[E] Board up — ${labelFor(nearby.id)}`;
         ctx.fillText(label, posRef.current.x, posRef.current.y - 34);
         ctx.restore();
       }
@@ -199,6 +228,10 @@ export default function RoomCanvas() {
       className="h-auto w-full max-w-full rounded-sm border border-line"
     />
   );
+}
+
+function labelFor(entryId: string) {
+  return ENTRY_DEFS.find((d) => d.id === entryId)?.label ?? entryId;
 }
 
 function drawPileArt(

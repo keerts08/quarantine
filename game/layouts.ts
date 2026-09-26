@@ -20,6 +20,7 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Front Door",
     kind: "door",
     facing: "down",
+    activeFromNight: 1,
     zone: {
       x: CANVAS_W / 2 - 45,
       y: CANVAS_H - WALL_THICKNESS,
@@ -32,6 +33,7 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Back Door",
     kind: "door",
     facing: "up",
+    activeFromNight: 1,
     zone: { x: CANVAS_W / 2 + 120, y: 0, w: 80, h: WALL_THICKNESS },
   },
   {
@@ -39,6 +41,7 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Living Room Window",
     kind: "window",
     facing: "left",
+    activeFromNight: 1,
     zone: { x: 0, y: 150, w: WALL_THICKNESS, h: 90 },
   },
   {
@@ -46,6 +49,7 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Kitchen Window",
     kind: "window",
     facing: "right",
+    activeFromNight: 1,
     zone: {
       x: CANVAS_W - WALL_THICKNESS,
       y: CANVAS_H - 250,
@@ -58,7 +62,24 @@ export const ENTRY_DEFS: EntryDef[] = [
     label: "Attic Skylight",
     kind: "window",
     facing: "up",
+    activeFromNight: 3,
     zone: { x: CANVAS_W / 2 - 160, y: 0, w: 80, h: WALL_THICKNESS },
+  },
+  {
+    id: "cellarHatch",
+    label: "Cellar Hatch",
+    kind: "window",
+    facing: "down",
+    activeFromNight: 5,
+    zone: { x: 120, y: CANVAS_H - WALL_THICKNESS, w: 80, h: WALL_THICKNESS },
+  },
+  {
+    id: "sideWindow",
+    label: "side Window",
+    kind: "window",
+    facing: "right",
+    activeFromNight: 7,
+    zone: { x: CANVAS_W - WALL_THICKNESS, y: 80, w: WALL_THICKNESS, h: 80 },
   },
 ];
 
