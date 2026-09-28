@@ -81,6 +81,7 @@ function initialState(): GameState {
       "You've boarded yourself into the house. Something is already outside.",
     ],
     lastCoinsEarned: 0,
+    intruders: [],
   };
 }
 

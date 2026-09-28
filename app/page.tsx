@@ -65,11 +65,18 @@ export default function Home() {
             </p>
 
             <div className="">
-              <p className="text-sm text-ink-dim">Sharpened Stake -  level{weaponLevel}{maxedWeapon ? "(max)" : ""}</p>
+              <p className="text-sm text-ink-dim">
+                Sharpened Stake - level{weaponLevel}
+                {maxedWeapon ? "(max)" : ""}
+              </p>
               <Button
                 onClick={buyWeaponUpgrade}
-              disabled={maxedWeapon || coins < upgradeCost}
-              >{maxedWeapon ? "Fully Sharpened" : `Sharpen - ${upgradeCost} coins.`}</Button>
+                disabled={maxedWeapon || coins < upgradeCost}
+              >
+                {maxedWeapon
+                  ? "Fully Sharpened"
+                  : `Sharpen - ${upgradeCost} coins.`}
+              </Button>
               <p className="text-xs text-ink-dim">You have {coins} coins</p>
             </div>
             <Button

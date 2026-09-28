@@ -18,7 +18,7 @@ export type EntryId =
   | "atticWindow"
   | "cellarHatch"
   | "sideWindow";
-  
+
 export type EntryKind = "door" | "window";
 
 export interface EntryDef {
@@ -44,7 +44,7 @@ export const BARRICADE_MAX_INTEGRITY: Record<BarricadeLevel, number> = {
   1: 40,
   2: 75,
   3: 100,
-}
+};
 
 export interface EntryState {
   barricadeLevel: BarricadeLevel;
@@ -81,6 +81,15 @@ export interface CombatState {
   resolution: "pending" | "win" | "lose";
 }
 
+export interface Intruder {
+  id: string;
+  entryId: EntryId;
+  pos: Vec2;
+  hp: number;
+  maxHp: number;
+  isBoss: boolean;
+}
+
 export interface PlayerState {
   pos: Vec2;
   hp: number;
@@ -107,4 +116,5 @@ export interface GameState {
   combat: CombatState | null;
   log: string[];
   lastCoinsEarned: number;
+  intruders: Intruder[];
 }
