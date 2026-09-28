@@ -8,6 +8,7 @@ import {
   weaponUpgradeCost,
 } from "@/game/store";
 import { Button } from "@/components/ui/button";
+import CombatOverlay from "@/components/combat-overlay";
 
 export default function Home() {
   const phase = useGameStore((s) => s.phase);
@@ -16,6 +17,8 @@ export default function Home() {
   const coins = useGameStore((s) => s.player.coins);
   const weaponLevel = useGameStore((s) => s.player.weaponLevel);
   const lastCoinsEarned = useGameStore((s) => s.lastCoinsEarned);
+
+  const hasIntruders = useGameStore((s) => s.intruders.length > 0);
   const startGame = useGameStore((s) => s.startGame);
   const beginNight = useGameStore((s) => s.beginNight);
   const advanceAfterDawn = useGameStore((s) => s.advanceAfterDawn);
@@ -29,6 +32,15 @@ export default function Home() {
         {phase !== "title" && <Hud />}
         <div className="relative">
           <RoomCanvas />
+          <CombatOverlay />
+
+          {hasIntruders && (phase === "day" || phase === "night") && (
+            <div className="absolute inset-x-0 top-3 flex justify-center">
+              <p className="rounded-sm border border-danger bg-void/80 px-4 py-1.5 text-xs uppercase tracking-widest text-danger">
+                Something is loose - Left Click to attack
+              </p>
+            </div>
+          )}
 
           {phase === "title" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-5">

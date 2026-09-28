@@ -32,6 +32,7 @@ export default function Hud() {
   const weaponLevel = useGameStore((s) => s.player.weaponLevel);
   const entries = useGameStore((s) => s.entries);
   const isBossLevel = night % 3 === 0;
+  const hasIntruders = useGameStore((s) => s.intruders.length > 0);
 
   const hpPct = Math.round((hp / maxHp) * 100);
   const activeEntries = ENTRY_DEFS.filter(

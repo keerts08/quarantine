@@ -1,3 +1,15 @@
+/** "The Hollow" — an elongated, faceless thing that folds itself through gaps. */
+
+function lighten(hex: string, amt: number): string {
+  if (amt <= 0) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  const t = Math.min(1, amt);
+  return `rgb(${Math.round(r + (255 - r) * t)},${Math.round(g + (255 - g) * t)},${Math.round(b + (255 - b) * t)})`;
+}
+
 interface DrawHollowOpts {
   cx: number;
   cy: number;
@@ -5,6 +17,8 @@ interface DrawHollowOpts {
   t: number;
   damage: number;
   flinch: number;
+  /** NEW in Part 3 — 0-1, it's in contact and actively hurting the player right now. */
+  attacking?: number;
 }
 
 function jointArm(
@@ -14,6 +28,7 @@ function jointArm(
   spread: number,
   t: number,
   seed: number,
+  flinch: number,
 ) {
   const twitch = Math.sin(t * 3 + seed) * 6;
   const elbow = {
@@ -28,7 +43,7 @@ function jointArm(
 
   ctx.lineCap = "round";
   ctx.lineWidth = 6;
-  ctx.strokeStyle = "#5a5b4e";
+  ctx.strokeStyle = lighten("#5a5b4e", flinch * 0.85);
   ctx.beginPath();
   ctx.moveTo(shoulder.x, shoulder.y);
   ctx.quadraticCurveTo(elbow.x, elbow.y, wrist.x, wrist.y);
@@ -45,14 +60,14 @@ function jointArm(
   );
   ctx.stroke();
 
-  ctx.fillStyle = "#3f4036";
+  ctx.fillStyle = lighten("#3f4036", flinch * 0.85);
   for (const p of [shoulder, elbow, wrist]) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  ctx.strokeStyle = "#2c2d26";
+  ctx.strokeStyle = lighten("#2c2d26", flinch * 0.85);
   ctx.lineWidth = 2;
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();
@@ -66,7 +81,7 @@ export function drawHollow(
   ctx: CanvasRenderingContext2D,
   opts: DrawHollowOpts,
 ) {
-  const { cx, cy, scale, t, damage, flinch } = opts;
+  const { cx, cy, scale, t, damage, flinch, attacking = 0 } = opts;
   const hunch = damage * 18;
 
   ctx.save();
@@ -81,7 +96,7 @@ export function drawHollow(
   ctx.arc(0, 0, 140, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#3d3e34";
+  ctx.fillStyle = lighten("#3d3e34", flinch * 0.85);
   ctx.beginPath();
   ctx.moveTo(-18, -60);
   ctx.quadraticCurveTo(-26, 0, -14 + hunch * 0.3, 70);
@@ -102,7 +117,7 @@ export function drawHollow(
     ctx.stroke();
   }
 
-  ctx.fillStyle = "#43443a";
+  ctx.fillStyle = lighten("#43443a", flinch * 0.85);
   ctx.beginPath();
   ctx.ellipse(0, -78, 15, 19, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -119,27 +134,26 @@ export function drawHollow(
   ctx.quadraticCurveTo(24, 0, 16, 68);
   ctx.stroke();
 
-  jointArm(ctx, { x: -16, y: -48 }, 130, -70, t, 0);
-  jointArm(ctx, { x: 16, y: -48 }, 130, 70, t, 2.1);
+  jointArm(ctx, { x: -16, y: -48 }, 130, -70, t, 0, flinch);
+  jointArm(ctx, { x: 16, y: -48 }, 130, 70, t, 2.1, flinch);
 
-  ctx.strokeStyle = "#33342c";
+  // CHANGED from Part 2: the right leg now kicks toward the viewer whenever
+  // `attacking` is set — a visible cause for every point of contact damage.
+  const kick = attacking > 0 ? attacking * (0.5 + 0.5 * Math.sin(t * 10)) : 0;
+  ctx.strokeStyle = lighten("#33342c", flinch * 0.85);
   ctx.lineWidth = 8;
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(-10, 66);
   ctx.quadraticCurveTo(-20, 100, -8, 140);
   ctx.moveTo(10, 66);
-  ctx.quadraticCurveTo(20, 100, 8, 140);
+  ctx.quadraticCurveTo(
+    20 + kick * 22,
+    96 - kick * 14,
+    8 + kick * 38,
+    132 - kick * 30,
+  );
   ctx.stroke();
-
-  if (flinch > 0) {
-    ctx.globalAlpha = flinch;
-    ctx.fillStyle = "#e9efc9";
-    ctx.beginPath();
-    ctx.ellipse(0, -10, 40, 90, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  }
 
   ctx.restore();
 }

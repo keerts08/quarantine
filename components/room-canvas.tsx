@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useGameStore } from "@/game/store";
+import { CONTACT_RADIUS, useGameStore } from "@/game/store";
 import {
   CANVAS_H,
   CANVAS_W,
@@ -15,6 +15,7 @@ import { clamp, distToRect, dist } from "@/game/physics";
 import { drawEntry } from "./entry-art";
 import { drawPlayer } from "./player-art";
 import type { Vec2 } from "@/game/types";
+import { drawHollow } from "./hollow-art";
 
 const INTERACT_RANGE = 46;
 const MOVE_KEYS = new Set([
@@ -33,6 +34,9 @@ export default function RoomCanvas() {
   const keysDown = useRef<Set<string>>(new Set());
   const posRef = useRef<Vec2>({ ...useGameStore.getState().player.pos });
   const movingRef = useRef(false);
+  const swingCooldownRef = useRef(0);
+  const swingAnimRef = useRef(0);
+  const intruderFxRef = useRef<Map<string, { flinch: number, lastHp: number}>>(new Map())
 
   useEffect(() => {
     let prevPhase = useGameStore.getState().phase;
@@ -47,6 +51,21 @@ export default function RoomCanvas() {
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    let prevLen = useGameStore.getState().log.length;
+    const unsub = useGameStore.subscribe((state) => {
+      if (state.log.length <= prevLen) {
+        prevLen = state.log.length;
+        return;
+      }
+      for (const line of state.log.slice(prevLen)) {
+      // need to play sounds
+      }
+      prevLen = state.log.length;
+    });
+    return unsub;
+  }, [])
 
   const findNearby = useCallback(() => {
     const s = useGameStore.getState();
@@ -97,6 +116,23 @@ export default function RoomCanvas() {
   }, [tryInteract]);
 
   useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    function onMouseDown(e: MouseEvent) {
+      if (e.button !== 0) return;
+      const s = useGameStore.getState();
+      if (s.phase !== "day" && s.phase !== "night") return;
+      e.preventDefault();
+      swingAnimRef.current = 1;
+      if (swingCooldownRef.current > 0) return;
+      s.swingWeapon();
+      swingCooldownRef.current = 0.45;
+    }
+    canvas.addEventListener("mousedown", onMouseDown)
+    return () => canvas.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  useEffect(() => {
     const maybeCanvas = canvasRef.current;
     if (!maybeCanvas) return;
     const canvas: HTMLCanvasElement = maybeCanvas;
@@ -143,6 +179,8 @@ export default function RoomCanvas() {
 
       if (s.phase === "night") s.tickNight(dt);
       if (s.phase === "combat") s.tickCombat(dt);
+      if (s.phase === "day" || s.phase === "night") s.tickIntruders(dt);
+      swingCooldownRef.current = Math.max(0, swingCooldownRef.current - dt)
     }, 1000 / 60);
 
     let raf = 0;
@@ -195,7 +233,34 @@ export default function RoomCanvas() {
         if (s.night < def.activeFromNight) continue;
         drawEntry(ctx, def, s.entries[def.id], t, isNight);
       }
+const seenIds = new Set<string>();
+      for (const intr of s.intruders) {
+        seenIds.add(intr.id);
+        let fx = intruderFxRef.current.get(intr.id);
+        if (!fx) {
+          fx = { flinch: 0, lastHp: intr.hp };
+          intruderFxRef.current.set(intr.id, fx);
+        }
+        if (intr.hp < fx.lastHp) fx.flinch = 1;
+        fx.lastHp = intr.hp;
+        fx.flinch = Math.max(0, fx.flinch - 0.05);
 
+        const attacking = dist(intr.pos, posRef.current) < CONTACT_RADIUS ? 1 : 0;
+        drawHollow(ctx, {
+          cx: intr.pos.x,
+          cy: intr.pos.y,
+          scale: intr.isBoss ? 0.5 : 0.34,
+          t,
+          damage: 1 - intr.hp / intr.maxHp,
+          flinch: fx.flinch,
+          attacking,
+        });
+      }
+      for (const id of intruderFxRef.current.keys()) {
+        if (!seenIds.has(id)) intruderFxRef.current.delete(id);
+      }
+
+      swingAnimRef.current = Math.max(0, swingAnimRef.current - 0.14);
       drawPlayer(ctx, posRef.current.x, posRef.current.y, t, movingRef.current);
 
       const nearby = findNearby();
