@@ -28,14 +28,21 @@ export interface EntryDef {
   zone: RectZone;
   facing: "up" | "down" | "left" | "right";
   activeFromNight: number;
+  gate: {
+    rot: 0 | 90 | 180 | 270;
+    aX: number;
+    aY: number;
+    bX: number;
+    bY: number;
+  };
 }
 
 export type BarricadeLevel = 0 | 1 | 2 | 3;
 
 export const BARRICADE_COST: Record<BarricadeLevel, number> = {
   0: 0,
-  1: 2,
-  2: 3,
+  1: 1,
+  2: 2,
   3: 4,
 };
 
@@ -60,9 +67,27 @@ export interface MaterialPile {
   pos: Vec2;
   boards: number;
   respawnsNight: boolean;
+  isChest: boolean;
+  openedAt: number | null;
 }
 
-export type Phase = "title" | "day" | "night" | "combat" | "dawn" | "gameover";
+export interface Intruder {
+  id: string;
+  entryId: EntryId;
+  pos: Vec2;
+  hp: number;
+  maxHp: number;
+  isBoss: boolean;
+}
+
+export type Phase =
+  | "title"
+  | "day"
+  | "night"
+  | "combat"
+  | "dawn"
+  | "gameover"
+  | "victory";
 
 export interface CombatState {
   entryId: EntryId;
@@ -81,15 +106,6 @@ export interface CombatState {
   resolution: "pending" | "win" | "lose";
 }
 
-export interface Intruder {
-  id: string;
-  entryId: EntryId;
-  pos: Vec2;
-  hp: number;
-  maxHp: number;
-  isBoss: boolean;
-}
-
 export interface PlayerState {
   pos: Vec2;
   hp: number;
@@ -97,7 +113,20 @@ export interface PlayerState {
   boards: number;
   coins: number;
   weaponLevel: number;
+  vitalsLevel: number;
+  handsLevel: number;
+  resistLevel: number;
+  speedLevel: number;
+  scavengerLevel: number;
 }
+
+export type UpgradeId =
+  | "weapon"
+  | "vitals"
+  | "hands"
+  | "resist"
+  | "speed"
+  | "scavenger";
 
 export interface NightConfig {
   night: number;
@@ -117,4 +146,7 @@ export interface GameState {
   log: string[];
   lastCoinsEarned: number;
   intruders: Intruder[];
+  audioEnabled: boolean;
+  pendingUpgrades: UpgradeId[];
+  jumpscareSeq: number;
 }

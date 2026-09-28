@@ -1,99 +1,120 @@
-import type { EntryDef, Vec2 } from "./types";
+import { BARREL_BOXES, CHEST_BOXES } from "./collision-data";
+import { GRID_COLS, GRID_ROWS } from "./map-data";
+import { findGates, TILE } from "./tilemap";
+import type { EntryDef, EntryId, Vec2 } from "./types";
 
-export const CANVAS_W = 960;
-export const CANVAS_H = 600;
-export const WALL_THICKNESS = 26;
+export const CANVAS_W = GRID_COLS * TILE;
+export const CANVAS_H = GRID_ROWS * TILE;
 
 export const ROOM = {
-  x: WALL_THICKNESS,
-  y: WALL_THICKNESS,
-  w: CANVAS_W - WALL_THICKNESS * 2,
-  h: CANVAS_H - WALL_THICKNESS * 2,
+  x: TILE,
+  y: TILE,
+  w: CANVAS_W - TILE * 2,
+  h: CANVAS_H - TILE * 2,
 };
 
 export const PLAYER_RADIUS = 12;
 export const PLAYER_SPEED = 210;
 
-export const ENTRY_DEFS: EntryDef[] = [
-  {
-    id: "frontDoor",
-    label: "Front Door",
-    kind: "door",
-    facing: "down",
-    activeFromNight: 1,
-    zone: {
-      x: CANVAS_W / 2 - 45,
-      y: CANVAS_H - WALL_THICKNESS,
-      w: 90,
-      h: WALL_THICKNESS,
-    },
-  },
-  {
-    id: "backDoor",
-    label: "Back Door",
-    kind: "door",
-    facing: "up",
-    activeFromNight: 1,
-    zone: { x: CANVAS_W / 2 + 120, y: 0, w: 80, h: WALL_THICKNESS },
-  },
+const GATES = findGates();
+
+function zoneFor(gate: { aX: number; aY: number; bX: number; bY: number }) {
+  const left = Math.min(gate.aX, gate.bX) - TILE / 2;
+  const top = Math.min(gate.aY, gate.bY) - TILE / 2;
+  const right = Math.min(gate.aY, gate.bX) + TILE / 2;
+  const bottom = Math.min(gate.aY, gate.bY) + TILE / 2;
+  return { x: left, y: top, w: right - left, h: bottom - top };
+}
+
+const ENTRY_META: Array<{
+  id: EntryId;
+  label: string;
+  kind: EntryDef["kind"];
+  activeFromNight: number;
+}> = [
+  { id: "frontDoor", label: "Front Door", kind: "door", activeFromNight: 1 },
+  { id: "backDoor", label: "Back Door", kind: "door", activeFromNight: 1 },
   {
     id: "livingWindow",
-    label: "Living Room Window",
+    label: "West Window",
     kind: "window",
-    facing: "left",
     activeFromNight: 1,
-    zone: { x: 0, y: 150, w: WALL_THICKNESS, h: 90 },
   },
   {
     id: "kitchenWindow",
-    label: "Kitchen Window",
+    label: "East Window",
     kind: "window",
-    facing: "right",
     activeFromNight: 1,
-    zone: {
-      x: CANVAS_W - WALL_THICKNESS,
-      y: CANVAS_H - 250,
-      w: WALL_THICKNESS,
-      h: 90,
-    },
   },
-  {
-    id: "atticWindow",
-    label: "Attic Skylight",
-    kind: "window",
-    facing: "up",
-    activeFromNight: 3,
-    zone: { x: CANVAS_W / 2 - 160, y: 0, w: 80, h: WALL_THICKNESS },
-  },
+  { id: "atticWindow", label: "Skylight", kind: "window", activeFromNight: 3 },
   {
     id: "cellarHatch",
-    label: "Cellar Hatch",
+    label: "Floor Hatch",
     kind: "window",
-    facing: "down",
     activeFromNight: 5,
-    zone: { x: 120, y: CANVAS_H - WALL_THICKNESS, w: 80, h: WALL_THICKNESS },
   },
   {
     id: "sideWindow",
-    label: "Side Window",
+    label: "Upper Window",
     kind: "window",
-    facing: "right",
     activeFromNight: 7,
-    zone: { x: CANVAS_W - WALL_THICKNESS, y: 80, w: WALL_THICKNESS, h: 80 },
   },
 ];
+
+if (GATES.length !== ENTRY_META.length) {
+  throw new Error(
+    `layouts.ts: painted map has ${GATES.length} gate(s) but ENTRY_META lists ${ENTRY_META.length}. ` +
+      "The map changed — add/remove an entry here to match before shipping.",
+  );
+}
+
+export const ENTRY_DEPS: EntryDef[] = ENTRY_META.map((meta, i) => ({
+  ...meta,
+  facing: GATES[i].facing,
+  zone: zoneFor(GATES[i]),
+  gate: {
+    rot: GATES[i].rot,
+    aX: GATES[i].aX,
+    aY: GATES[i].aY,
+    bX: GATES[i].bX,
+    bY: GATES[i].bY,
+  },
+}));
 
 export interface MaterialPileDef {
   id: string;
   pos: Vec2;
   boards: number;
+  isChest: boolean;
+  minNight: number;
 }
 
+function centerOf(b: { x: number; y: number; w: number; h: number }): Vec2 {
+  return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+}
+
+const barrelDefs: MaterialPileDef[] = BARREL_BOXES.map((b, i) => ({
+  id: `barrel-${i}`,
+  pos: centerOf(b),
+  boards: 3,
+  isChest: false,
+  minNight: i === BARREL_BOXES.length - 1 ? 5 : 1,
+}));
+
+const chestDefs: MaterialPileDef[] = CHEST_BOXES.map((b, i) => ({
+  id: `chest-${i}`,
+  pos: centerOf(b),
+  boards: 8,
+  isChest: true,
+  minNight: 1,
+}));
+
 export const MATERIAL_PILE_DEFS: MaterialPileDef[] = [
-  { id: "pile-living", pos: { x: 170, y: 320 }, boards: 3 },
-  { id: "pile-hall", pos: { x: 480, y: 160 }, boards: 3 },
-  { id: "pile-kitchen", pos: { x: 740, y: 420 }, boards: 3 },
-  { id: "pile-stairs", pos: { x: 560, y: 460 }, boards: 2 },
+  ...barrelDefs,
+  ...chestDefs,
 ];
 
-export const PLAYER_START: Vec2 = { x: CANVAS_W / 2, y: CANVAS_H / 2 };
+export const PLAYER_START: Vec2 = {
+  x: 15 * TILE + TILE / 2,
+  y: 9 * TILE + TILE / 2,
+};
