@@ -1,5 +1,3 @@
-/** "The Hollow" — an elongated, faceless thing that folds itself through gaps. */
-
 function lighten(hex: string, amt: number): string {
   if (amt <= 0) return hex;
   const n = parseInt(hex.slice(1), 16);
@@ -17,7 +15,6 @@ interface DrawHollowOpts {
   t: number;
   damage: number;
   flinch: number;
-  /** NEW in Part 3 — 0-1, it's in contact and actively hurting the player right now. */
   attacking?: number;
 }
 
@@ -137,8 +134,6 @@ export function drawHollow(
   jointArm(ctx, { x: -16, y: -48 }, 130, -70, t, 0, flinch);
   jointArm(ctx, { x: 16, y: -48 }, 130, 70, t, 2.1, flinch);
 
-  // CHANGED from Part 2: the right leg now kicks toward the viewer whenever
-  // `attacking` is set — a visible cause for every point of contact damage.
   const kick = attacking > 0 ? attacking * (0.5 + 0.5 * Math.sin(t * 10)) : 0;
   ctx.strokeStyle = lighten("#33342c", flinch * 0.85);
   ctx.lineWidth = 8;

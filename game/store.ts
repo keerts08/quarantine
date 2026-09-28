@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { ENTRY_DEFS, MATERIAL_PILE_DEFS, PLAYER_START, ROOM } from "./layouts";
 import { clamp, dist } from "./physics";
+import { playHitImpact, playMiss } from "./sound";
 
 const MAX_LOG = 40;
 const HOLLOW_TOUCH_DAMAGE = 8;
@@ -252,7 +253,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.phase !== "night") return;
 
     const cfg = nightConfig(s.night);
-    let hpDelta = 0;
     const entries = { ...s.entries };
     const newlySpotted: EntryId[] = [];
     const newlyReady: EntryId[] = [];
@@ -393,6 +393,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       c.marker >= c.zoneStart && c.marker <= c.zoneStart + c.zoneWidth;
 
     if (inZone) {
+      playHitImpact();
       const hitsLanded = c.hitsLanded + 1;
       if (hitsLanded >= c.hitsNeeded) {
         resolveCombatWin(c);
@@ -410,6 +411,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       });
     } else {
+      playMiss();
       const misses = c.misses + 1;
       if (misses >= c.maxMisses) {
         resolveCombatLose(c);
@@ -458,7 +460,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ intruders, player: hpDelta < 0 ? { ...s.player, hp: nextHp } : s.player });
   },
 
-  swingWeapon() {
+  swingWeapon: () => {
     const s = get();
     if (s.phase !== "day" && s.phase !== "night") return;
     if (s.intruders.length === 0) return;
@@ -477,7 +479,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const hp = Math.max(0, nearest.hp - damage);
     if (hp <= 0) {
-      const def = ENTRY_DEFS.find((d) => d.id === nearest!.entryId);
+      const def = ENTRY_DEFS.find((d) => d.id === nearest!.entryId)!;
       const bonusCoins = nearest.isBoss ? 12 + s.night : 4 + Math.floor(s.night / 2);
       set({
         intruders: s.intruders.filter((i) => i.id !== nearest!.id),

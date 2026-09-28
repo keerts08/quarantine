@@ -16,6 +16,7 @@ import { drawEntry } from "./entry-art";
 import { drawPlayer } from "./player-art";
 import type { Vec2 } from "@/game/types";
 import { drawHollow } from "./hollow-art";
+import { playBang, playKnock, playStrain } from "@/game/sound";
 
 const INTERACT_RANGE = 46;
 const MOVE_KEYS = new Set([
@@ -36,7 +37,9 @@ export default function RoomCanvas() {
   const movingRef = useRef(false);
   const swingCooldownRef = useRef(0);
   const swingAnimRef = useRef(0);
-  const intruderFxRef = useRef<Map<string, { flinch: number, lastHp: number}>>(new Map())
+  const intruderFxRef = useRef<Map<string, { flinch: number; lastHp: number }>>(
+    new Map(),
+  );
 
   useEffect(() => {
     let prevPhase = useGameStore.getState().phase;
@@ -60,12 +63,14 @@ export default function RoomCanvas() {
         return;
       }
       for (const line of state.log.slice(prevLen)) {
-      // need to play sounds
+        if (line.startsWith("It broke through")) playBang();
+        else if (line.startsWith("It's breaking through")) playStrain();
+        else if (line.startsWith("You see something at")) playKnock();
       }
       prevLen = state.log.length;
     });
     return unsub;
-  }, [])
+  }, []);
 
   const findNearby = useCallback(() => {
     const s = useGameStore.getState();
@@ -75,8 +80,9 @@ export default function RoomCanvas() {
     for (const pile of s.piles) {
       if (pile.boards <= 0) continue;
       const d = dist(posRef.current, pile.pos);
-      if (d <= INTERACT_RANGE && (!best || d < best.d))
+      if (d <= INTERACT_RANGE && (!best || d < best.d)) {
         best = { kind: "pile", id: pile.id, d };
+      }
     }
     for (const def of ENTRY_DEFS) {
       if (s.night < def.activeFromNight) continue;
@@ -128,7 +134,7 @@ export default function RoomCanvas() {
       s.swingWeapon();
       swingCooldownRef.current = 0.45;
     }
-    canvas.addEventListener("mousedown", onMouseDown)
+    canvas.addEventListener("mousedown", onMouseDown);
     return () => canvas.removeEventListener("mousedown", onMouseDown);
   }, []);
 
@@ -180,7 +186,7 @@ export default function RoomCanvas() {
       if (s.phase === "night") s.tickNight(dt);
       if (s.phase === "combat") s.tickCombat(dt);
       if (s.phase === "day" || s.phase === "night") s.tickIntruders(dt);
-      swingCooldownRef.current = Math.max(0, swingCooldownRef.current - dt)
+      swingCooldownRef.current = Math.max(0, swingCooldownRef.current - dt);
     }, 1000 / 60);
 
     let raf = 0;
@@ -233,7 +239,7 @@ export default function RoomCanvas() {
         if (s.night < def.activeFromNight) continue;
         drawEntry(ctx, def, s.entries[def.id], t, isNight);
       }
-const seenIds = new Set<string>();
+      const seenIds = new Set<string>();
       for (const intr of s.intruders) {
         seenIds.add(intr.id);
         let fx = intruderFxRef.current.get(intr.id);
@@ -245,7 +251,8 @@ const seenIds = new Set<string>();
         fx.lastHp = intr.hp;
         fx.flinch = Math.max(0, fx.flinch - 0.05);
 
-        const attacking = dist(intr.pos, posRef.current) < CONTACT_RADIUS ? 1 : 0;
+        const attacking =
+          dist(intr.pos, posRef.current) < CONTACT_RADIUS ? 1 : 0;
         drawHollow(ctx, {
           cx: intr.pos.x,
           cy: intr.pos.y,
