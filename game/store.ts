@@ -25,8 +25,8 @@ function isBossLevel(night: number) {
   return night % 3 === 0;
 }
 
-function weaponUpgradeCost(weaponLevel: number) {
-  return 18 + weaponLevel * 34;
+export function weaponUpgradeCost(weaponLevel: number) {
+  return 18 + weaponLevel * 14;
 }
 
 function nightConfig(night: number): NightConfig {
@@ -274,7 +274,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         phase: "gameover",
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
-          "The house is overun, It gets in.",
+          "The house is overrun, It gets in.",
         ],
       });
       return;

@@ -75,7 +75,7 @@ export const ENTRY_DEFS: EntryDef[] = [
   },
   {
     id: "sideWindow",
-    label: "side Window",
+    label: "Side Window",
     kind: "window",
     facing: "right",
     activeFromNight: 7,
