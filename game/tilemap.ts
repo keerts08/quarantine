@@ -1,5 +1,6 @@
 import { GRID, GRID_COLS, GRID_ROWS, type MapCell } from "./map-data";
 import { SOLID_BOXES } from "./collision-data";
+import { getTintedSprite } from "./sprites";
 
 export const TILE = 32;
 const SHEET_COLS = 12;
@@ -46,16 +47,50 @@ function cellAt(row: number, col: number): MapCell | null {
 }
 
 export function isSolidAt(px: number, py: number): boolean {
-
+  if (px < 0 || py < 0 || px > GRID_COLS * TILE || py > GRID_ROWS * TILE)
+    return true;
+  for (const b of SOLID_BOXES) {
+    if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h)
+      return true;
+  }
+  return false;
 }
 
+function circleHitsSolid(cx: number, cy: number, radius: number): boolean {
+  return (
+    isSolidAt(cx - radius, cy) ||
+    isSolidAt(cx + radius, cy) ||
+    isSolidAt(cx, cy - radius) ||
+    isSolidAt(cx, cy + radius)
+  );
+}
+
+export function moveWithCollision(
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  radius: number,
+) {
+  let nx = x;
+  let ny = y;
+  if (dx !== 0) {
+    const candidate = x + dx;
+    if (!circleHitsSolid(candidate, y, radius)) nx = candidate;
+  }
+  if (dy !== 0) {
+    const candidate = y + dy;
+    if (!circleHitsSolid(nx, candidate, radius)) ny = candidate;
+  }
+  return { x: nx, y: ny };
+} 
 
 function srcRectFor(t: number) {
-    const sc = t % SHEET_COLS
-    const sr = Math.floor(t / SHEET_COLS)
-    return { sx: sc * SRC_TILE, sy: sr * SRC_TILE}
-} 
-    
+  const sc = t % SHEET_COLS;
+  const sr = Math.floor(t / SHEET_COLS);
+  return { sx: sc * SRC_TILE, sy: sr * SRC_TILE };
+}
+
 export function drawSheetTile(
   ctx: CanvasRenderingContext2D,
   t: number,
@@ -155,33 +190,63 @@ export function findGates(): GateCell[] {
   const seen = new Set<string>();
   const gates: GateCell[] = [];
 
-function makeGate(
-  r46: number,
-  c46: number,
-  r47: number,
-  c47: number,
-  facing: GateCell["facing"],
-): GateCell {
-  const a = centerOf(r46, c46);
-  const b = centerOf(r47, c47);
-  return {
-    facing,
-    rot: GRID[r46][c46]!.rot,
-    aX: a.x,
-    aY: a.y,
-    bX: b.x,
-    bY: b.y,
-  };
-}
-   
+  function makeGate(
+    r46: number,
+    c46: number,
+    r47: number,
+    c47: number,
+    facing: GateCell["facing"],
+  ): GateCell {
+    const a = centerOf(r46, c46);
+    const b = centerOf(r47, c47);
+    return {
+      facing,
+      rot: GRID[r46][c46]!.rot,
+      aX: a.x,
+      aY: a.y,
+      bX: b.x,
+      bY: b.y,
+    };
+  }
 
- return gates
+  for (let row = 0; row < GRID_ROWS; row++) {
+    for (let col = 0; col < GRID_COLS; col++) {
+      const cell = GRID[row][col];
+      if (!cell || (cell.t !== 46 && cell.t !== 47)) continue;
+      const key = `${row},${col}`;
+      if (seen.has(key)) continue;
 
+      const right = cellAt(row, col + 1);
+      if (right && (right.t === 46 || right.t === 47) && right.t !== cell.t) {
+        seen.add(key);
+        seen.add(`${row},${col + 1}`);
+        const facing = row === 0 ? "up" : "down";
+        gates.push(
+          cell.t === 46
+            ? makeGate(row, col, row, col + 1, facing)
+            : makeGate(row, col + 1, row, col, facing),
+        );
+        continue;
+      }
+      const below = cellAt(row + 1, col);
+      if (below && (below.t === 46 || below.t === 47) && below.t !== cell.t) {
+        seen.add(key);
+        seen.add(`${row + 1},${col}`);
+        const facing = col === 0 ? "left" : "right";
+        gates.push(
+          cell.t === 46
+            ? makeGate(row, col, row + 1, col, facing)
+            : makeGate(row + 1, col, row, col, facing),
+        );
+      }
+    }
+  }
+  return gates;
 }
 
 export interface GateTiles {
-    rot: 0 | 90 | 180 | 270;
-    aX: number;
+  rot: 0 | 90 | 180 | 270;
+  aX: number;
   aY: number;
   bX: number;
   bY: number;
