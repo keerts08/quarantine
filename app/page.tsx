@@ -64,7 +64,14 @@ export default function Home() {
               <span className="text-warn">+{lastCoinsEarned} coins</span>
             </p>
 
-            <div className="">weapon upgrades</div>
+            <div className="">
+              <p className="text-sm text-ink-dim">Sharpened Stake -  level{weaponLevel}{maxedWeapon ? "(max)" : ""}</p>
+              <Button
+                onClick={buyWeaponUpgrade}
+              disabled={maxedWeapon || coins < upgradeCost}
+              >{maxedWeapon ? "Fully Sharpened" : `Sharpen - ${upgradeCost} coins.`}</Button>
+              <p className="text-xs text-ink-dim">You have {coins} coins</p>
+            </div>
             <Button
               onClick={advanceAfterDawn}
               className="rounded-sm border border-accent px-6 py-2 uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-void"
