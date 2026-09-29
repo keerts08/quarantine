@@ -1,4 +1,11 @@
 copied sm phys from dreadpath
 used ai to gen art
 used ai to make combat-overlay which il delete later-
-used ai to make the whole game canvas cuz idk how to add sprites and assest at all-
+used ai to make the whole game canvas cuz idk how to add sprites and assest at all- 
+
+files left to change:
+- page.tsx
+- combat-overlay.tsx
+- jumpscare-overlay.tsx
+- settings-dialog
+- how to play dialog

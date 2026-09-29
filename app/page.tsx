@@ -51,14 +51,6 @@ export default function Home() {
           )}
         </div>
 
-        {phase === "day" && (
-          <div className="absolute inset-x-0 bottom-3 flex justify-center">
-            <Button onClick={beginNight} className="rounded-sm">
-              Lock In Barricades
-            </Button>
-          </div>
-        )}
-
         {phase === "dawn" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <h2 className="font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-accent">
