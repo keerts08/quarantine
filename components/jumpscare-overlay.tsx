@@ -5,7 +5,6 @@ import { useGameStore } from "@/game/store";
 import { playJumpscareSting } from "@/game/sound";
 
 const DURATION_MS = 1100;
-const GLITCH_LINES = ["CONNECTION LOST", "UNAUTHENTICATED", "IT'S INSIDE", "NO SIGNAL"];
 
 function drawScreamerFace(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
   ctx.fillStyle = "#000000";
@@ -161,12 +160,6 @@ export default function JumpscareOverlay() {
         className="jumpscare-punch h-[115vh] w-[115vw] max-w-none object-cover"
       />
       <div className="jumpscare-static pointer-events-none" />
-      <div className="jumpscare-flicker pointer-events-none absolute inset-0 flex flex-col items-start justify-between p-4 font-mono text-xs text-[#ff4444] mix-blend-screen">
-        <span>{GLITCH_LINES[0]}</span>
-        <span className="self-end">{GLITCH_LINES[1]}</span>
-        <span>{GLITCH_LINES[2]}</span>
-        <span className="self-end">{GLITCH_LINES[3]}</span>
-      </div>
     </div>
   );
 }

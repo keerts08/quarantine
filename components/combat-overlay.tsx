@@ -1,5 +1,5 @@
 "use client";
-// need to imrpove combat overlay
+
 import { useEffect, useRef } from "react";
 import { useGameStore } from "@/game/store";
 import { ENTRY_DEFS } from "@/game/layouts";
@@ -53,28 +53,31 @@ export default function CombatOverlay() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
- useEffect(() => {
-   function onKey(e: KeyboardEvent) {
-     if (e.code === "Space" || e.key === " ") {
-       e.preventDefault();
-       useGameStore.getState().hitCombat();
-     }
-   }
-   window.addEventListener("keydown", onKey);
-   return () => window.removeEventListener("keydown", onKey);
- }, []);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code === "Space" || e.key === " ") {
+        e.preventDefault();
+        useGameStore.getState().hitCombat();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
- if (!combat) return null;
- const def = ENTRY_DEFS.find((d) => d.id === combat.entryId)!;
- const hpPct = Math.max(0, 100 - (combat.hitsLanded / combat.hitsNeeded) * 100);
- const title = combat.isBoss
-   ? `The Warden forces the ${def.label}`
-   : `It's forcing the ${def.label}`;
+  if (!combat) return null;
+  const def = ENTRY_DEFS.find((d) => d.id === combat.entryId)!;
+  const hpPct = Math.max(
+    0,
+    100 - (combat.hitsLanded / combat.hitsNeeded) * 100,
+  );
+  const title = combat.isBoss
+    ? `The Warden forces the ${def.label}`
+    : `It's forcing the ${def.label}`;
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void/85 breach-shake">
       <p className="font-[family-name:var(--font-display)] uppercase tracking-widest text-danger text-lg">
-        It&apos;s forcing the {def.label}
+        {title}
       </p>
 
       <canvas ref={canvasRef} width={220} height={260} />
