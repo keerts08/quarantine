@@ -1,75 +1,110 @@
+let ctx: AudioContext | null = null;
 let enabled = true;
-export function setSoundEnabled(v: boolean) {
-  enabled = v;
+
+export function setSoundEnabled(value: boolean) {
+  enabled = value;
 }
 
-let ctx: AudioContext | null = null;
 function getCtx(): AudioContext | null {
   if (!enabled) return null;
-  if (!ctx) ctx = new AudioContext();
+  if (typeof window === "undefined") return null;
+  const AC =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AC) return null;
+  if (!ctx) ctx = new AC();
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
   return ctx;
 }
 
-function thud(
-  freq: number,
+function noiseBurst(
+  ac: AudioContext,
+  now: number,
   duration: number,
-  gain: number,
-  type: OscillatorType = "sine",
+  volume: number,
+  lowpassHz: number,
 ) {
-  const c = getCtx();
-  if (!c) return;
-  const osc = c.createOscillator();
-  const g = c.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, c.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(
-    Math.max(1, freq * 0.5),
-    c.currentTime + duration,
-  );
-  g.gain.setValueAtTime(gain, c.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
-  osc.connect(g);
-  g.connect(c.destination);
-  osc.start();
-  osc.stop(c.currentTime + duration);
+  const bufferSize = Math.max(1, Math.floor(ac.sampleRate * duration));
+  const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  }
+  const source = ac.createBufferSource();
+  source.buffer = buffer;
+  const filter = ac.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = lowpassHz;
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  source.connect(filter).connect(gain).connect(ac.destination);
+  source.start(now);
 }
 
-function noiseBurst(duration: number, gain: number, filterFreq: number) {
-  const c = getCtx();
-  if (!c) return;
-  const bufferSize = c.sampleRate * duration;
-  const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-  const noise = c.createBufferSource();
-  noise.buffer = buffer;
-  const filter = c.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = filterFreq;
-  const g = c.createGain();
-  g.gain.setValueAtTime(gain, c.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
-
-  noise.connect(filter);
-  filter.connect(g);
-  g.connect(c.destination);
-  noise.start();
+function thud(
+  ac: AudioContext,
+  now: number,
+  startFreq: number,
+  endFreq: number,
+  duration: number,
+  volume: number,
+  type: OscillatorType = "sine",
+) {
+  const osc = ac.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(startFreq, now);
+  osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
 }
 
 export function playKnock() {
-  thud(220, 0.15, 0.2, "square");
+  const ac = getCtx();
+  if (!ac) return;
+  thud(ac, ac.currentTime, 200, 90, 0.14, 0.22, "triangle");
 }
+
 export function playStrain() {
-  noiseBurst(0.2, 0.15, 800);
+  const ac = getCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  thud(ac, now, 150, 60, 0.18, 0.3, "sawtooth");
+  noiseBurst(ac, now, 0.12, 0.2, 700);
 }
+
 export function playBang() {
-  noiseBurst(0.3, 0.35, 300);
-  thud(80, 0.3, 0.3, "sawtooth");
+  const ac = getCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  thud(ac, now, 130, 35, 0.32, 0.55, "sine");
+  noiseBurst(ac, now, 0.2, 0.45, 900);
+  noiseBurst(ac, now + 0.06, 0.12, 0.25, 1400);
 }
+
 export function playHitImpact() {
-  thud(180, 0.12, 0.25, "square");
+  const ac = getCtx();
+  if (!ac) return;
+  thud(ac, ac.currentTime, 320, 90, 0.09, 0.28, "square");
 }
+
 export function playMiss() {
-  thud(110, 0.1, 0.12, "sine");
+  const ac = getCtx();
+  if (!ac) return;
+  thud(ac, ac.currentTime, 90, 50, 0.12, 0.12, "sine");
+}
+
+export function playJumpscareSting() {
+  const ac = getCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  thud(ac, now, 900, 60, 0.6, 0.5, "sawtooth");
+  thud(ac, now, 940, 55, 0.6, 0.4, "square");
+  noiseBurst(ac, now, 0.45, 0.5, 2200);
+  noiseBurst(ac, now + 0.05, 0.3, 0.35, 500);
 }

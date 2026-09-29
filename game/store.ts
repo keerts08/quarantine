@@ -11,99 +11,57 @@ import {
   type Intruder,
   type MaterialPile,
   type NightConfig,
+  type PlayerState,
+  type UpgradeId,
   type Vec2,
 } from "./types";
-import { ENTRY_DEFS, MATERIAL_PILE_DEFS, PLAYER_START, ROOM } from "./layouts";
+import { ENTRY_DEFS, MATERIAL_PILE_DEFS, PLAYER_START } from "./layouts";
 import { clamp, dist } from "./physics";
-import { playHitImpact, playMiss } from "./sound";
+import { playHitImpact, playMiss, setSoundEnabled } from "./sound";
+import { moveWithCollision } from "./tilemap";
+
+const INTRUDER_RADIUS = 12;
 
 const MAX_LOG = 40;
 const HOLLOW_TOUCH_DAMAGE = 8;
 const WARMUP_SECONDS = 1.8;
 const BOSS_ENTRY_ID: EntryId = "frontDoor";
+
+export const MAX_NIGHT = 10;
+
+function maxConcurrentThreats(night: number) {
+  if (night <= 3) return 1;
+  if (night <= 7) return 2;
+  return 3;
+}
+
+const DAY_DURATION = 25;
+const DAWN_DURATION = 30;
+
 export const MAX_WEAPON_LEVEL = 4;
+export const MAX_VITALS_LEVEL = 5;
+export const MAX_HANDS_LEVEL = 2;
+export const MAX_RESIST_LEVEL = 4;
+export const MAX_SPEED_LEVEL = 3;
+export const MAX_SCAVENGER_LEVEL = 3;
 
 const INTRUDER_SPEED = 46;
 export const CONTACT_RADIUS = 30;
 const CONTACT_DAMAGE_BASE = 10;
 const CONTACT_DAMAGE_PER_LEVEL = 1.2;
+
 const INTRUDER_BASE_HP = 20;
 const INTRUDER_HP_PER_LEVEL = 4;
 const INTRUDER_BOSS_HP_MULT = 1.8;
-export const HOLLOW_RANGE = 68;
 
-function isBossLevel(night: number) {
-  return night % 3 === 0;
+export const SWORD_RANGE = 68;
+
+export function weaponStats(weaponLevel: number) {
+  return { damage: 8 + weaponLevel * 4, cooldown: 0.45, range: SWORD_RANGE };
 }
 
-export function weaponUpgradeCost(weaponLevel: number) {
-  return 18 + weaponLevel * 14;
-}
-
-export function weaponDamage(weaponLevel: number) {
-  return 8 + weaponLevel * 4;
-}
-
-function nightConfig(night: number): NightConfig {
-  return {
-    night,
-    pressure: 6 + (night - 1) * 2.4,
-    duration: 55 + (night - 1) * 6,
-    aggression: 0.5,
-  };
-}
-
-function freshEntries(): Record<EntryId, EntryState> {
-  const out = {} as Record<EntryId, EntryState>;
-  for (const def of ENTRY_DEFS) {
-      out[def.id] = {
-        barricadeLevel: 0,
-        integrity: 0,
-        breached: false,
-        underAttack: false,
-        warmup: 0,
-        respite: 0,
-      };
-  }
-  return out;
-}
-
-function freshPiles(): MaterialPile[] {
-  return MATERIAL_PILE_DEFS.map((d) => ({
-    id: d.id,
-    pos: d.pos,
-    boards: d.boards,
-    respawnsNight: true,
-  }));
-}
-
-function initialState(): GameState {
-  return {
-    phase: "title",
-    night: 1,
-    timeRemaining: 0,
-    player: {
-      pos: { ...PLAYER_START },
-      hp: 100,
-      maxHp: 100,
-      boards: 4,
-      coins: 0,
-      weaponLevel: 0,
-    },
-    entries: freshEntries(),
-    piles: freshPiles(),
-    combat: null,
-    log: [
-      "You've boarded yourself into the house. Something is already outside.",
-    ],
-    lastCoinsEarned: 0,
-    intruders: [],
-  };
-}
-
-function isEntryActive(entryId: EntryId, night: number) {
-  const def = ENTRY_DEFS.find((d) => d.id === entryId)!;
-  return night >= def.activeFromNight;
+export function speedMultiplierFor(speedLevel: number) {
+  return 1 + speedLevel * 0.12;
 }
 
 function spawnPosFor(def: EntryDef): Vec2 {
@@ -122,65 +80,319 @@ function spawnPosFor(def: EntryDef): Vec2 {
   }
 }
 
+function isBossLevel(night: number) {
+  return night % 3 === 0;
+}
+
 function spawnIntruder(def: EntryDef, night: number): Intruder {
   const isBoss = isBossLevel(night) && def.id === BOSS_ENTRY_ID;
   const maxHp = Math.round(
-    (
-      INTRUDER_BASE_HP + night * INTRUDER_HP_PER_LEVEL) * (isBoss? INTRUDER_BOSS_HP_MULT : 1)
-    )
+    (INTRUDER_BASE_HP + (night - 1) * INTRUDER_HP_PER_LEVEL) *
+      (isBoss ? INTRUDER_BOSS_HP_MULT : 1),
+  );
   return {
-    id: `${def.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `intr-${def.id}-${Date.now()}`,
     entryId: def.id,
     pos: spawnPosFor(def),
     hp: maxHp,
     maxHp,
     isBoss,
+  };
+}
+
+export interface UpgradeDef {
+  id: UpgradeId;
+  label: string;
+  hint: string;
+  icon: string;
+  maxLevel: number;
+}
+
+export const UPGRADE_DEFS: Record<UpgradeId, UpgradeDef> = {
+  vitals: {
+    id: "vitals",
+    label: "Reinforced Vitals",
+    hint: "+15 max HP, healed immediately.",
+    icon: "/sprites/icon-health.png",
+    maxLevel: MAX_VITALS_LEVEL,
+  },
+  weapon: {
+    id: "weapon",
+    label: "Sharpened Sword",
+    hint: "More damage per swing, fewer hits needed to break a siege.",
+    icon: "/sprites/sword-2.png",
+    maxLevel: MAX_WEAPON_LEVEL,
+  },
+  hands: {
+    id: "hands",
+    label: "Quick Hands",
+    hint: "Every barricade level costs one fewer board.",
+    icon: "/sprites/icon-hands.png",
+    maxLevel: MAX_HANDS_LEVEL,
+  },
+  resist: {
+    id: "resist",
+    label: "Thick Skin",
+    hint: "Take noticeably less damage on contact.",
+    icon: "/sprites/icon-resist.png",
+    maxLevel: MAX_RESIST_LEVEL,
+  },
+  speed: {
+    id: "speed",
+    label: "Swift Boots",
+    hint: "Move faster through the dungeon.",
+    icon: "/sprites/icon-speed.png",
+    maxLevel: MAX_SPEED_LEVEL,
+  },
+  scavenger: {
+    id: "scavenger",
+    label: "Scavenger's Eye",
+    hint: "Salvage extra boards from every pile.",
+    icon: "/sprites/icon-scavenger.png",
+    maxLevel: MAX_SCAVENGER_LEVEL,
+  },
+};
+
+function getUpgradeLevel(player: PlayerState, id: UpgradeId): number {
+  switch (id) {
+    case "vitals":
+      return player.vitalsLevel;
+    case "weapon":
+      return player.weaponLevel;
+    case "hands":
+      return player.handsLevel;
+    case "resist":
+      return player.resistLevel;
+    case "speed":
+      return player.speedLevel;
+    case "scavenger":
+      return player.scavengerLevel;
   }
 }
 
+function applyUpgrade(player: PlayerState, id: UpgradeId): PlayerState {
+  switch (id) {
+    case "vitals": {
+      const gain = 15;
+      return {
+        ...player,
+        vitalsLevel: player.vitalsLevel + 1,
+        maxHp: player.maxHp + gain,
+        hp: player.hp + gain,
+      };
+    }
+    case "weapon":
+      return { ...player, weaponLevel: player.weaponLevel + 1 };
+    case "hands":
+      return { ...player, handsLevel: player.handsLevel + 1 };
+    case "resist":
+      return { ...player, resistLevel: player.resistLevel + 1 };
+    case "speed":
+      return { ...player, speedLevel: player.speedLevel + 1 };
+    case "scavenger":
+      return { ...player, scavengerLevel: player.scavengerLevel + 1 };
+  }
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function pickUpgrades(player: PlayerState): UpgradeId[] {
+  const allIds = Object.keys(UPGRADE_DEFS) as UpgradeId[];
+  const eligible = allIds.filter(
+    (id) => getUpgradeLevel(player, id) < UPGRADE_DEFS[id].maxLevel,
+  );
+  if (eligible.length === 0) return [];
+
+  const picks: UpgradeId[] = [];
+  if (eligible.includes("vitals")) picks.push("vitals");
+  const rest = shuffle(eligible.filter((id) => id !== "vitals"));
+  for (const id of rest) {
+    if (picks.length >= 3) break;
+    picks.push(id);
+  }
+  return picks;
+}
+
+function barricadeCostFor(level: BarricadeLevel, handsLevel: number) {
+  return Math.max(1, BARRICADE_COST[level] - handsLevel);
+}
+
+function nightConfig(night: number): NightConfig {
+  return {
+    night,
+    pressure: 6 + (night - 1) * 2.4,
+    duration: 55 + (night - 1) * 6,
+    aggression: 0.5,
+  };
+}
+
+function freshEntries(): Record<EntryId, EntryState> {
+  const out = {} as Record<EntryId, EntryState>;
+  for (const def of ENTRY_DEFS) {
+    out[def.id] = {
+      barricadeLevel: 0,
+      integrity: 0,
+      breached: false,
+      underAttack: false,
+      warmup: 0,
+      respite: 0,
+    };
+  }
+  return out;
+}
+
+function pilesForNight(
+  existing: MaterialPile[],
+  night: number,
+): MaterialPile[] {
+  const byId = new Map(existing.map((p) => [p.id, p]));
+  return MATERIAL_PILE_DEFS.filter((d) => night >= d.minNight).map((d) => {
+    const prev = byId.get(d.id);
+    if (prev) return prev;
+    return {
+      id: d.id,
+      pos: d.pos,
+      boards: d.boards,
+      respawnsNight: true,
+      isChest: d.isChest,
+      openedAt: null,
+    };
+  });
+}
+
+function initialState(): GameState {
+  return {
+    phase: "title",
+    night: 1,
+    timeRemaining: 0,
+    player: {
+      pos: { ...PLAYER_START },
+      hp: 100,
+      maxHp: 100,
+      boards: 4,
+      coins: 0,
+      weaponLevel: 0,
+      vitalsLevel: 0,
+      handsLevel: 0,
+      resistLevel: 0,
+      speedLevel: 0,
+      scavengerLevel: 0,
+    },
+    entries: freshEntries(),
+    piles: pilesForNight([], 1),
+    combat: null,
+    log: [
+      "You've sealed yourself into this chamber. Something is already down here with you.",
+    ],
+    lastCoinsEarned: 0,
+    intruders: [],
+    audioEnabled: true,
+    pendingUpgrades: [],
+    jumpscareSeq: 0,
+  };
+}
+
+function isEntryActive(entryId: EntryId, night: number) {
+  const def = ENTRY_DEFS.find((d) => d.id === entryId)!;
+  return night >= def.activeFromNight;
+}
+
+function nightfallState(s: GameState): Partial<GameState> {
+  const cfg = nightConfig(s.night);
+  const entries = { ...s.entries };
+  for (const def of ENTRY_DEFS) {
+    const e = entries[def.id];
+    entries[def.id] = {
+      ...e,
+      integrity:
+        e.barricadeLevel > 0 ? BARRICADE_MAX_INTEGRITY[e.barricadeLevel] : 0,
+      underAttack: false,
+      warmup: 0,
+      respite: 4,
+    };
+  }
+  const bossLine = isBossLevel(s.night)
+    ? [`Something bigger is with it tonight. The Warden has come.`]
+    : [];
+  return {
+    phase: "night",
+    timeRemaining: cfg.duration,
+    entries,
+    log: [
+      ...s.log.slice(-(MAX_LOG - 1)),
+      `Level ${s.night} — nightfall.`,
+      ...bossLine,
+    ],
+  };
+}
+
 interface GameStore extends GameState {
-  combatQueue: EntryId[];
   pushLog: (line: string) => void;
   startGame: () => void;
   setPlayerPos: (pos: Vec2) => void;
   collectPile: (pileId: string) => void;
   upgradeBarricade: (entryId: EntryId) => void;
   beginNight: () => void;
+  tickDay: (dt: number) => void;
   tickNight: (dt: number) => void;
   tickCombat: (dt: number) => void;
   hitCombat: () => void;
   tickIntruders: (dt: number) => void;
   swingWeapon: () => void;
-  advanceAfterDawn: () => void;
-  buyWeaponUpgrade: () => void;
+  tickDawn: (dt: number) => void;
+  chooseUpgrade: (id: UpgradeId) => void;
   resetGame: () => void;
+  toggleAudio: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState(),
-  combatQueue: [],
 
   pushLog: (line) =>
     set((s) => ({ log: [...s.log.slice(-(MAX_LOG - 1)), line] })),
 
-  startGame: () => set({ ...initialState(), phase: "day", combatQueue: [] }),
+  startGame: () =>
+    set((s) => ({
+      ...initialState(),
+      audioEnabled: s.audioEnabled,
+      phase: "day",
+      timeRemaining: DAY_DURATION,
+    })),
 
-  resetGame: () => set({ ...initialState(), combatQueue: [] }),
+  resetGame: () =>
+    set((s) => ({ ...initialState(), audioEnabled: s.audioEnabled })),
+
+  toggleAudio: () => 
+    set((s) => {
+      const next = !s.audioEnabled;
+      setSoundEnabled(next);
+      return { audioEnabled: next };
+    })
 
   setPlayerPos: (pos) => set((s) => ({ player: { ...s.player, pos } })),
 
-  collectPile: (pileId) =>
+   collectPile: (pileId) =>
     set((s) => {
       const pile = s.piles.find((p) => p.id === pileId);
       if (!pile || pile.boards <= 0) return s;
-      const gained = pile.boards;
+      const gained = pile.boards + s.player.scavengerLevel;
+
+      const jumpscareChance = clamp(0.15 + 0.02 * (s.night - 1), 0.15, 0.3);
+      const scared = Math.random() < jumpscareChance;
       return {
-        piles: s.piles.map((p) => (p.id === pileId ? { ...p, boards: 0 } : p)),
+        piles: s.piles.map((p) =>
+          p.id === pileId ? { ...p, boards: 0, openedAt: p.isChest ? Date.now() : p.openedAt } : p,
+        ),
         player: { ...s.player, boards: s.player.boards + gained },
-        log: [
-          ...s.log.slice(-(MAX_LOG - 1)),
-          `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`,
-        ],
+        log: [...s.log.slice(-(MAX_LOG - 1)), `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`],
+        jumpscareSeq: scared ? s.jumpscareSeq + 1 : s.jumpscareSeq,
       };
     }),
 
@@ -189,10 +401,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const entry = s.entries[entryId];
       if (!entry) return s;
       const nextLevel = Math.min(3, entry.barricadeLevel + 1) as BarricadeLevel;
-      if (nextLevel === entry.barricadeLevel) return s;
-      const cost = BARRICADE_COST[nextLevel];
-      if (s.player.boards < cost) return s;
       const def = ENTRY_DEFS.find((d) => d.id === entryId)!;
+      if (nextLevel === entry.barricadeLevel && !entry.breached) {
+        return {
+          log: [...s.log.slice(-(MAX_LOG - 1)), `The ${def.label} is already fully reinforced.`],
+        };
+      }
+      const cost = barricadeCostFor(nextLevel, s.player.handsLevel);
+      if (s.player.boards < cost) {
+
+        return {
+          log: [
+            ...s.log.slice(-(MAX_LOG - 1)),
+            `Need ${cost} boards for the ${def.label} (have ${s.player.boards}).`,
+          ],
+        };
+      }
+     const hadIntruder = entry.breached && s.intruders.some((i) => i.entryId === entryId);
       return {
         player: { ...s.player, boards: s.player.boards - cost },
         entries: {
@@ -207,46 +432,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
             integrity: BARRICADE_MAX_INTEGRITY[nextLevel],
           },
         },
+        intruders: s.intruders.filter((i) => i.entryId !== entryId),
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
           `Reinforced the ${def.label} (level ${nextLevel}).`,
+          ...(hadIntruder ? ["You drive it back out through the gap and slam the boards home."] : []),
         ],
       };
     }),
 
-  beginNight: () =>
-    set((s) => {
-      const cfg = nightConfig(s.night);
-      const entries = { ...s.entries };
-      for (const def of ENTRY_DEFS) {
-        const e = entries[def.id];
-        entries[def.id] = {
-          ...e,
-          integrity:
-            e.barricadeLevel > 0
-              ? BARRICADE_MAX_INTEGRITY[e.barricadeLevel]
-              : 0,
-          underAttack: false,
-          warmup: 0,
-          respite: 4,
-        };
-      }
-
-      const bossLine = isBossLevel(s.night)
-        ? [`Something bigger is with it tonight. The Warden has come.`]
-        : [];
-      return {
-        phase: "night",
-        timeRemaining: cfg.duration,
-        entries,
-        combatQueue: [],
-        log: [
-          ...s.log.slice(-(MAX_LOG - 1)),
-          `Level ${s.night} — nightfall.`,
-          ...bossLine,
-        ],
-      };
-    }),
+  beginNight: () => set((s) => nightfallState(s)),
 
   tickNight: (dt) => {
     const s = get();
@@ -314,7 +509,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const timeRemaining = s.timeRemaining - dt;
-   
+
     for (const id of newlySpotted) {
       const def = ENTRY_DEFS.find((d) => d.id === id)!;
       logLines.push(`You see something at the ${def.label}.`);
@@ -428,36 +623,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let hpDelta = 0;
     const intruders = s.intruders.map((intr) => {
-      const toPlayer = { x: s.player.pos.x - intr.pos.x, y: s.player.pos.y - intr.pos.y };
+      const toPlayer = {
+        x: s.player.pos.x - intr.pos.x,
+        y: s.player.pos.y - intr.pos.y,
+      };
       const d = Math.hypot(toPlayer.x, toPlayer.y) || 1;
       const step = Math.min(d, INTRUDER_SPEED * dt);
       const pos = {
-        x: clamp(intr.pos.x + (toPlayer.x / d) * step, ROOM.x + 10, ROOM.x + ROOM.w - 10),
-        y: clamp(intr.pos.y + (toPlayer.y / d) * step, ROOM.y + 10, ROOM.y + ROOM.h - 10),
-      }
+        x: clamp(
+          intr.pos.x + (toPlayer.x / d) * step,
+          ROOM.x + 10,
+          ROOM.x + ROOM.w - 10,
+        ),
+        y: clamp(
+          intr.pos.y + (toPlayer.y / d) * step,
+          ROOM.y + 10,
+          ROOM.y + ROOM.h - 10,
+        ),
+      };
       if (dist(pos, s.player.pos) < CONTACT_RADIUS) {
-        hpDelta -= (CONTACT_DAMAGE_BASE + s.night * CONTACT_DAMAGE_PER_LEVEL) * dt;
+        hpDelta -=
+          (CONTACT_DAMAGE_BASE + s.night * CONTACT_DAMAGE_PER_LEVEL) * dt;
       }
-      return { ...intr, pos}
+      return { ...intr, pos };
+    });
 
-    })
+    const nextHp = clamp(s.player.hp + hpDelta, 0, s.player.maxHp);
+    if (nextHp <= 0 && hpDelta < 0) {
+      set({
+        player: { ...s.player, hp: 0 },
+        intruders,
+        phase: "gameover",
+        log: [
+          ...s.log.slice(-(MAX_LOG - 1)),
+          "It gets its hands on you.",
+          "The house is overrun. It gets in.",
+        ],
+      });
+      return;
+    }
 
-     const nextHp = clamp(s.player.hp + hpDelta, 0, s.player.maxHp);
-     if (nextHp <= 0 && hpDelta < 0) {
-       set({
-         player: { ...s.player, hp: 0 },
-         intruders,
-         phase: "gameover",
-         log: [
-           ...s.log.slice(-(MAX_LOG - 1)),
-           "It gets its hands on you.",
-           "The house is overrun. It gets in.",
-         ],
-       });
-       return;
-     }
-
-    set({ intruders, player: hpDelta < 0 ? { ...s.player, hp: nextHp } : s.player });
+    set({
+      intruders,
+      player: hpDelta < 0 ? { ...s.player, hp: nextHp } : s.player,
+    });
   },
 
   swingWeapon: () => {
@@ -470,7 +679,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let nearestDist = Infinity;
     for (const intr of s.intruders) {
       const d = dist(intr.pos, s.player.pos);
-      if (d <= HOLLOW_RANGE && d < nearestDist) {
+      if (d <= SWORD_RANGE && d < nearestDist) {
         nearest = intr;
         nearestDist = d;
       }
@@ -480,19 +689,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const hp = Math.max(0, nearest.hp - damage);
     if (hp <= 0) {
       const def = ENTRY_DEFS.find((d) => d.id === nearest!.entryId)!;
-      const bonusCoins = nearest.isBoss ? 12 + s.night : 4 + Math.floor(s.night / 2);
+      const bonusCoins = nearest.isBoss
+        ? 12 + s.night
+        : 4 + Math.floor(s.night / 2);
       set({
         intruders: s.intruders.filter((i) => i.id !== nearest!.id),
         player: { ...s.player, coins: s.player.coins + bonusCoins },
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
-          `You put it down for good. It won't be back - but the ${def?.label} is still open. +${bonusCoins} coins.`
+          `You put it down for good. It won't be back - but the ${def?.label} is still open. +${bonusCoins} coins.`,
         ],
-      })
+      });
       return;
     }
 
-    set({intruders: s.intruders.map((i) => (i.id === nearest!.id ? {...i, hp}: i))})
+    set({
+      intruders: s.intruders.map((i) =>
+        i.id === nearest!.id ? { ...i, hp } : i,
+      ),
+    });
   },
 
   buyWeaponUpgrade: () =>
@@ -616,7 +831,7 @@ function resolveCombatLose(finishedCombat: CombatState) {
       warmup: 0,
     },
   };
-  const intruders = [...s.intruders, spawnIntruder(def, s.night)] 
+  const intruders = [...s.intruders, spawnIntruder(def, s.night)];
   const nextHp = clamp(s.player.hp - HOLLOW_TOUCH_DAMAGE, 0, s.player.maxHp);
   const gameover = nextHp <= 0;
 

@@ -68,7 +68,7 @@ if (GATES.length !== ENTRY_META.length) {
   );
 }
 
-export const ENTRY_DEPS: EntryDef[] = ENTRY_META.map((meta, i) => ({
+export const ENTRY_DEFS: EntryDef[] = ENTRY_META.map((meta, i) => ({
   ...meta,
   facing: GATES[i].facing,
   zone: zoneFor(GATES[i]),

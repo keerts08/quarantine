@@ -1,24 +1,13 @@
 "use client";
 
 import { useGameStore } from "@/game/store";
-import { ENTRY_DEFS } from "@/game/layouts";
-import { BARRICADE_MAX_INTEGRITY, type EntryState } from "@/game/types";
+import { swordSpriteFor } from "@/game/sprites";
 
 function fmtTime(seconds: number) {
   const s = Math.max(0, Math.ceil(seconds));
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, "0")}`;
-}
-
-function entryDotColor(entry: EntryState) {
-  if (entry.breached) return "bg-void border border-danger";
-  if (entry.underAttack) return "bg-danger";
-  if (entry.barricadeLevel === 0) return "bg-ink-faint";
-  const pct = entry.integrity / BARRICADE_MAX_INTEGRITY[entry.barricadeLevel];
-  if (pct > 0.6) return "bg-accent";
-  if (pct > 0.3) return "bg-warn";
-  return "bg-danger";
 }
 
 export default function Hud() {
@@ -30,14 +19,9 @@ export default function Hud() {
   const boards = useGameStore((s) => s.player.boards);
   const coins = useGameStore((s) => s.player.coins);
   const weaponLevel = useGameStore((s) => s.player.weaponLevel);
-  const entries = useGameStore((s) => s.entries);
   const isBossLevel = night % 3 === 0;
-  const hasIntruders = useGameStore((s) => s.intruders.length > 0);
 
   const hpPct = Math.round((hp / maxHp) * 100);
-  const activeEntries = ENTRY_DEFS.filter(
-    (def) => night >= def.activeFromNight,
-  );
 
   return (
     <div className="flex items-center justify-between gap-6 border-b border-line bg-panel/80 px-5 py-3 font-[family-name:var(--font-display)] uppercase tracking-widest text-sm">
@@ -46,19 +30,17 @@ export default function Hud() {
           Level {night}
           {isBossLevel ? " — Warden" : ""}
         </span>
-        {phase === "night" && (
-          <span className="text-ink-dim">{fmtTime(timeRemaining)}</span>
+        {phase === "day" && (
+          <span className="text-ink-dim">
+            Night in {fmtTime(timeRemaining)}
+          </span>
         )}
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        {activeEntries.map((def) => (
-          <span
-            key={def.id}
-            title={def.label}
-            className={`h-2.5 w-2.5 rounded-full ${entryDotColor(entries[def.id])}`}
-          />
-        ))}
+        {(phase === "night" || phase === "combat") && (
+          <span className="text-ink-dim">Dawn in {fmtTime(timeRemaining)}</span>
+        )}
+        {phase === "dawn" && (
+          <span className="text-ink-dim">Day in {fmtTime(timeRemaining)}</span>
+        )}
       </div>
 
       <div className="flex items-center gap-5">
@@ -72,11 +54,22 @@ export default function Hud() {
           </div>
         </div>
         <div className="flex items-center gap-1.5 text-ink-dim">
-          <span className="text-ink-faint text-xs">Boards</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/sprites/icon-boards.png"
+            alt="Boards"
+            className="h-5 w-5 [image-rendering:pixelated]"
+          />
           <span className="text-ink font-semibold">{boards}</span>
         </div>
         <div className="flex items-center gap-1.5 text-ink-dim">
-          <span className="text-ink-faint text-xs">Stake+{weaponLevel}</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={swordSpriteFor(weaponLevel)}
+            alt="Sword"
+            className="h-5 w-5 [image-rendering:pixelated]"
+          />
+          <span className="text-ink font-semibold">+{weaponLevel}</span>
         </div>
         <div className="flex items-center gap-1.5 text-warn">
           <span className="text-ink-faint text-xs">Coins</span>

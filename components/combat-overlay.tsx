@@ -1,5 +1,5 @@
 "use client";
-
+// need to imrpove combat overlay
 import { useEffect, useRef } from "react";
 import { useGameStore } from "@/game/store";
 import { ENTRY_DEFS } from "@/game/layouts";
@@ -10,12 +10,14 @@ export default function CombatOverlay() {
   const hitsLanded = combat?.hitsLanded;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flinchRef = useRef(0);
+  const knockbackRef = useRef(0);
   const lastHits = useRef(0);
   const rafRef = useRef(0);
 
   useEffect(() => {
     if (hitsLanded !== undefined && hitsLanded > lastHits.current) {
       flinchRef.current = 1;
+      knockbackRef.current = 1;
     }
     lastHits.current = hitsLanded ?? 0;
   }, [hitsLanded]);
@@ -30,6 +32,7 @@ export default function CombatOverlay() {
     function frame(now: number) {
       const t = (now - start) / 1000;
       flinchRef.current = Math.max(0, flinchRef.current - 0.05);
+      knockbackRef.current = Math.max(0, knockbackRef.current - 0.06);
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
       const c = useGameStore.getState().combat;
       if (c) {
@@ -40,6 +43,8 @@ export default function CombatOverlay() {
           t,
           damage: c.hitsLanded / c.hitsNeeded,
           flinch: flinchRef.current,
+          knockback: knockbackRef.current,
+          isBoss: c.isBoss,
         });
       }
       rafRef.current = requestAnimationFrame(frame);
@@ -48,19 +53,23 @@ export default function CombatOverlay() {
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.code === "Space" || e.key === " ") {
-        e.preventDefault();
-        useGameStore.getState().hitCombat();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+ useEffect(() => {
+   function onKey(e: KeyboardEvent) {
+     if (e.code === "Space" || e.key === " ") {
+       e.preventDefault();
+       useGameStore.getState().hitCombat();
+     }
+   }
+   window.addEventListener("keydown", onKey);
+   return () => window.removeEventListener("keydown", onKey);
+ }, []);
 
-  if (!combat) return null;
-  const def = ENTRY_DEFS.find((d) => d.id === combat.entryId)!;
+ if (!combat) return null;
+ const def = ENTRY_DEFS.find((d) => d.id === combat.entryId)!;
+ const hpPct = Math.max(0, 100 - (combat.hitsLanded / combat.hitsNeeded) * 100);
+ const title = combat.isBoss
+   ? `The Warden forces the ${def.label}`
+   : `It's forcing the ${def.label}`;
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-void/85 breach-shake">
