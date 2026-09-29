@@ -148,15 +148,13 @@ function drawWoodSplinters(
   ctx.restore();
 }
 
-const BAIT_MS = 260;
-
 export default function JumpscareOverlay() {
   const phase = useGameStore((s) => s.phase);
   const jumpscareSeq = useGameStore((s) => s.jumpscareSeq);
   const jumpscareKind = useGameStore((s) => s.jumpscareKind);
   const [visible, setVisible] = useState(false);
-  const [bait, setBait] = useState(false);
-  const scareRef = useRef({ variant: 0, wood: false });
+  const [wood, setWood] = useState(false);
+  const variantRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const prevPhase = useRef(phase);
@@ -166,10 +164,8 @@ export default function JumpscareOverlay() {
     const wasGameover = prevPhase.current === "gameover";
     prevPhase.current = phase;
     if (phase === "gameover" && !wasGameover) {
-      scareRef.current = {
-        variant: Math.floor(Math.random() * 3),
-        wood: false,
-      };
+      variantRef.current = Math.floor(Math.random() * 3);
+      setWood(false);
       setVisible(true);
       playJumpscareSting();
       const timeout = setTimeout(() => setVisible(false), DURATION_MS);
@@ -180,10 +176,8 @@ export default function JumpscareOverlay() {
   useEffect(() => {
     if (jumpscareSeq === prevSeq.current) return;
     prevSeq.current = jumpscareSeq;
-    scareRef.current = {
-      variant: Math.floor(Math.random() * 3),
-      wood: jumpscareKind === "wood",
-    };
+    variantRef.current = Math.floor(Math.random() * 3);
+    setWood(jumpscareKind === "wood");
     setVisible(true);
     playJumpscareSting();
     const timeout = setTimeout(() => setVisible(false), DURATION_MS);
@@ -204,14 +198,14 @@ export default function JumpscareOverlay() {
         canvas!.width,
         canvas!.height,
         t,
-        scareRef.current.variant,
-        scareRef.current.wood,
+        variantRef.current,
+        wood,
       );
       rafRef.current = requestAnimationFrame(frame);
     }
     rafRef.current = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [visible]);
+  }, [visible, wood]);
 
   if (!visible) return null;
 
@@ -224,7 +218,7 @@ export default function JumpscareOverlay() {
         className="jumpscare-punch h-[115vh] w-[115vw] max-w-none object-cover"
       />
       <div className="jumpscare-static pointer-events-none" />
-      {scareRef.current.wood && (
+      {wood && (
         <p className="pointer-events-none absolute top-[22%] left-1/2 -translate-x-1/2 animate-pulse font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-accent mix-blend-screen">
           KEEP THE DAMN WOOD ! KEEP ITT !!
         </p>
