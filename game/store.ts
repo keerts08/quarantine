@@ -300,6 +300,7 @@ function initialState(): GameState {
     audioEnabled: true,
     pendingUpgrades: [],
     jumpscareSeq: 0,
+    jumpscareKind: "generic",
   };
 }
 
@@ -376,7 +377,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: () =>
     set((s) => {
       wasInContact = false;
-      return { ...initialState(), audioEnabled: s.audioEnabled }
+      return { ...initialState(), audioEnabled: s.audioEnabled };
     }),
 
   toggleAudio: () =>
@@ -408,6 +409,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`,
         ],
         jumpscareSeq: scared ? s.jumpscareSeq + 1 : s.jumpscareSeq,
+        jumpscareKind: "wood",
       };
     }),
 

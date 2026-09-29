@@ -138,4 +138,5 @@ export interface GameState {
   audioEnabled: boolean;
   pendingUpgrades: UpgradeId[];
   jumpscareSeq: number;
+  jumpscareKind: "generic" | "wood";
 }

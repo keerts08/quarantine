@@ -5,12 +5,28 @@ import { useGameStore } from "@/game/store";
 import { playJumpscareSting } from "@/game/sound";
 
 const DURATION_MS = 1100;
+const EYE_VARIANTS: [number, number, number, number][][] = [
+  [
+    [-40, -6, 17, 1],
+    [34, 4, 11, -1],
+  ],
+  [
+    [-30, 10, 14, 2],
+    [42, -14, 19, -2],
+  ],
+  [
+    [-48, -18, 10, 0],
+    [22, 16, 22, 1],
+  ],
+];
 
 function drawScreamerFace(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   t: number,
+  variant: number,
+  wood: boolean,
 ) {
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, w, h);
@@ -55,10 +71,7 @@ function drawScreamerFace(
     ctx.stroke();
   }
 
-  const eyes: [number, number, number, number][] = [
-    [-40, -6, 17, 1],
-    [34, 4, 11, -1],
-  ];
+  const eyes = EYE_VARIANTS[variant % EYE_VARIANTS.length];
   const pulse = 0.7 + Math.sin(t * 30) * 0.3;
   for (const [ex, ey, r, tilt] of eyes) {
     const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, r * 2.4);
@@ -106,12 +119,44 @@ function drawScreamerFace(
   }
 
   ctx.restore();
+
+  if (wood) drawWoodSplinters(ctx, w, h);
 }
+
+function drawWoodSplinters(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(120,74,38,0.85)";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  const seeds: [number, number, number, number][] = [
+    [0.08, 0.12, 0.32, 0.42],
+    [0.9, 0.18, 0.62, 0.5],
+    [0.12, 0.88, 0.38, 0.6],
+    [0.85, 0.82, 0.58, 0.52],
+    [0.5, 0.02, 0.44, 0.28],
+  ];
+  for (const [x1, y1, x2, y2] of seeds) {
+    ctx.beginPath();
+    ctx.moveTo(x1 * w, y1 * h);
+    ctx.lineTo(x2 * w, y2 * h);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+const BAIT_MS = 260;
 
 export default function JumpscareOverlay() {
   const phase = useGameStore((s) => s.phase);
   const jumpscareSeq = useGameStore((s) => s.jumpscareSeq);
+  const jumpscareKind = useGameStore((s) => s.jumpscareKind);
   const [visible, setVisible] = useState(false);
+  const [bait, setBait] = useState(false);
+  const scareRef = useRef({ variant: 0, wood: false });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const prevPhase = useRef(phase);
@@ -121,6 +166,10 @@ export default function JumpscareOverlay() {
     const wasGameover = prevPhase.current === "gameover";
     prevPhase.current = phase;
     if (phase === "gameover" && !wasGameover) {
+      scareRef.current = {
+        variant: Math.floor(Math.random() * 3),
+        wood: false,
+      };
       setVisible(true);
       playJumpscareSting();
       const timeout = setTimeout(() => setVisible(false), DURATION_MS);
@@ -131,11 +180,15 @@ export default function JumpscareOverlay() {
   useEffect(() => {
     if (jumpscareSeq === prevSeq.current) return;
     prevSeq.current = jumpscareSeq;
+    scareRef.current = {
+      variant: Math.floor(Math.random() * 3),
+      wood: jumpscareKind === "wood",
+    };
     setVisible(true);
     playJumpscareSting();
     const timeout = setTimeout(() => setVisible(false), DURATION_MS);
     return () => clearTimeout(timeout);
-  }, [jumpscareSeq]);
+  }, [jumpscareSeq, jumpscareKind]);
 
   useEffect(() => {
     if (!visible) return;
@@ -144,10 +197,16 @@ export default function JumpscareOverlay() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const start = performance.now();
-
     function frame(now: number) {
       const t = (now - start) / 1000;
-      drawScreamerFace(ctx!, canvas!.width, canvas!.height, t);
+      drawScreamerFace(
+        ctx!,
+        canvas!.width,
+        canvas!.height,
+        t,
+        scareRef.current.variant,
+        scareRef.current.wood,
+      );
       rafRef.current = requestAnimationFrame(frame);
     }
     rafRef.current = requestAnimationFrame(frame);
@@ -165,6 +224,11 @@ export default function JumpscareOverlay() {
         className="jumpscare-punch h-[115vh] w-[115vw] max-w-none object-cover"
       />
       <div className="jumpscare-static pointer-events-none" />
+      {scareRef.current.wood && (
+        <p className="pointer-events-none absolute top-[22%] left-1/2 -translate-x-1/2 animate-pulse font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-accent mix-blend-screen">
+          KEEP THE DAMN WOOD ! KEEP ITT !!
+        </p>
+      )}
     </div>
   );
 }
