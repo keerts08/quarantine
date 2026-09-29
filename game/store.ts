@@ -369,16 +369,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resetGame: () =>
     set((s) => ({ ...initialState(), audioEnabled: s.audioEnabled })),
 
-  toggleAudio: () => 
+  toggleAudio: () =>
     set((s) => {
       const next = !s.audioEnabled;
       setSoundEnabled(next);
       return { audioEnabled: next };
-    })
+    }),
 
   setPlayerPos: (pos) => set((s) => ({ player: { ...s.player, pos } })),
 
-   collectPile: (pileId) =>
+  collectPile: (pileId) =>
     set((s) => {
       const pile = s.piles.find((p) => p.id === pileId);
       if (!pile || pile.boards <= 0) return s;
@@ -388,10 +388,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const scared = Math.random() < jumpscareChance;
       return {
         piles: s.piles.map((p) =>
-          p.id === pileId ? { ...p, boards: 0, openedAt: p.isChest ? Date.now() : p.openedAt } : p,
+          p.id === pileId
+            ? { ...p, boards: 0, openedAt: p.isChest ? Date.now() : p.openedAt }
+            : p,
         ),
         player: { ...s.player, boards: s.player.boards + gained },
-        log: [...s.log.slice(-(MAX_LOG - 1)), `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`],
+        log: [
+          ...s.log.slice(-(MAX_LOG - 1)),
+          `Salvaged ${gained} board${gained === 1 ? "" : "s"}.`,
+        ],
         jumpscareSeq: scared ? s.jumpscareSeq + 1 : s.jumpscareSeq,
       };
     }),
@@ -404,12 +409,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const def = ENTRY_DEFS.find((d) => d.id === entryId)!;
       if (nextLevel === entry.barricadeLevel && !entry.breached) {
         return {
-          log: [...s.log.slice(-(MAX_LOG - 1)), `The ${def.label} is already fully reinforced.`],
+          log: [
+            ...s.log.slice(-(MAX_LOG - 1)),
+            `The ${def.label} is already fully reinforced.`,
+          ],
         };
       }
       const cost = barricadeCostFor(nextLevel, s.player.handsLevel);
       if (s.player.boards < cost) {
-
         return {
           log: [
             ...s.log.slice(-(MAX_LOG - 1)),
@@ -417,7 +424,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ],
         };
       }
-     const hadIntruder = entry.breached && s.intruders.some((i) => i.entryId === entryId);
+      const hadIntruder =
+        entry.breached && s.intruders.some((i) => i.entryId === entryId);
       return {
         player: { ...s.player, boards: s.player.boards - cost },
         entries: {
@@ -436,12 +444,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
           `Reinforced the ${def.label} (level ${nextLevel}).`,
-          ...(hadIntruder ? ["You drive it back out through the gap and slam the boards home."] : []),
+          ...(hadIntruder
+            ? [
+                "You drive it back out through the gap and slam the boards home.",
+              ]
+            : []),
         ],
       };
     }),
 
   beginNight: () => set((s) => nightfallState(s)),
+
+  tickDay: (dt) => {
+    const s = get();
+    if (s.phase !== "day") return;
+    const timeRemaining = s.timeRemaining - dt;
+    if (timeRemaining <= 0) {
+      set(nightfallState(s));
+      return;
+    }
+    set({ timeRemaining });
+  },
 
   tickNight: (dt) => {
     const s = get();
@@ -453,6 +476,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newlyReady: EntryId[] = [];
     const logLines: string[] = [];
 
+    let activeCount = 0;
+    for (const def of ENTRY_DEFS) {
+      if (isEntryActive(def.id, s.night) && entries[def.id].underAttack)
+        activeCount++;
+    }
+    const cap = maxConcurrentThreats(s.night);
+    const candidates: { id: EntryId; level: number }[] = [];
+
     for (const def of ENTRY_DEFS) {
       if (!isEntryActive(def.id, s.night)) continue;
       const e = entries[def.id];
@@ -460,7 +491,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (e.breached) {
         continue;
       }
-
       if (e.respite > 0) {
         entries[def.id] = { ...e, respite: Math.max(0, e.respite - dt) };
         continue;
@@ -480,13 +510,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
 
       if (e.barricadeLevel === 0) {
-        entries[def.id] = {
-          ...e,
-          integrity: 0,
-          underAttack: true,
-          warmup: WARMUP_SECONDS,
-        };
-        newlySpotted.push(def.id);
+        candidates.push({ id: def.id, level: 0 });
         continue;
       }
 
@@ -496,17 +520,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const nextIntegrity = e.integrity - decay;
 
       if (nextIntegrity <= 0) {
-        entries[def.id] = {
-          ...e,
-          integrity: 0,
-          underAttack: true,
-          warmup: WARMUP_SECONDS,
-        };
-        newlySpotted.push(def.id);
+        entries[def.id] = { ...e, integrity: 0 };
+        candidates.push({ id: def.id, level: e.barricadeLevel });
       } else {
         entries[def.id] = { ...e, integrity: nextIntegrity };
       }
     }
+    candidates.sort((a, b) => a.level - b.level);
+    const freeSlots = Math.max(0, cap - activeCount);
+    candidates.forEach(({ id }, i) => {
+      if (i >= freeSlots) return;
+      entries[id] = {
+        ...entries[id],
+        underAttack: true,
+        warmup: WARMUP_SECONDS,
+      };
+      newlySpotted.push(id);
+    });
 
     const timeRemaining = s.timeRemaining - dt;
 
@@ -514,32 +544,80 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const def = ENTRY_DEFS.find((d) => d.id === id)!;
       logLines.push(`You see something at the ${def.label}.`);
     }
-
     for (const id of newlyReady) {
       const def = ENTRY_DEFS.find((d) => d.id === id)!;
       logLines.push(`It's breaking through the ${def.label}!`);
     }
 
-    let queue =
-      newlyReady.length > 0 ? [...s.combatQueue, ...newlyReady] : s.combatQueue;
-    let phase: GameState["phase"] = "night";
     let combat = s.combat;
-
-    if (!combat && queue.length > 0) {
-      const [nextId, ...rest] = queue;
+    let intruders = s.intruders;
+    const readyQueue = [...newlyReady];
+    if (!combat && readyQueue.length > 0) {
+      const nextId = readyQueue.shift()!;
       combat = makeCombat(nextId, s.night, s.player.weaponLevel);
-      queue = rest;
-      phase = "combat";
     }
+    for (const id of readyQueue) {
+      const def = ENTRY_DEFS.find((d) => d.id === id)!;
+      entries[id] = {
+        ...entries[id],
+        integrity: 0,
+        breached: true,
+        underAttack: false,
+        warmup: 0,
+      };
+      intruders = [...intruders, spawnIntruder(def, s.night)];
+      logLines.push(
+        `It got through the ${def.label} while you were busy elsewhere.`,
+      );
+    }
+    const phase: GameState["phase"] = combat ? "combat" : "night";
 
     if (timeRemaining <= 0 && phase === "night") {
+      if (intruders.length > 0) {
+        if (s.timeRemaining > 0) {
+          logLines.push("Dawn is close, but it's still down here. Finish it.");
+        }
+        set({
+          entries,
+          intruders,
+          timeRemaining: 0,
+          combat,
+          phase,
+          log: logLines.length
+            ? [...s.log.slice(-(MAX_LOG - 1)), ...logLines]
+            : s.log,
+        });
+        return;
+      }
       const earned = 12 + s.night * 4;
+      const player = { ...s.player, coins: s.player.coins + earned };
+
+      if (s.night >= MAX_NIGHT) {
+        set({
+          phase: "victory",
+          entries,
+          intruders,
+          player,
+          lastCoinsEarned: earned,
+          timeRemaining: 0,
+          log: [
+            ...s.log.slice(-(MAX_LOG - 1)),
+            ...logLines,
+            `Dawn breaks. You survived level ${s.night}. +${earned} coins.`,
+            `The dungeon has nothing left to throw at you. You made it.`,
+          ],
+        });
+        return;
+      }
+
       set({
         phase: "dawn",
         entries,
-        player: { ...s.player, coins: s.player.coins + earned },
+        intruders,
+        player,
         lastCoinsEarned: earned,
-        timeRemaining: 0,
+        timeRemaining: DAWN_DURATION,
+        pendingUpgrades: pickUpgrades(player),
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
           ...logLines,
@@ -551,8 +629,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({
       entries,
+      intruders,
       timeRemaining: Math.max(0, timeRemaining),
-      combatQueue: queue,
       combat,
       phase,
       log: logLines.length
@@ -575,7 +653,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       marker = 0;
       dir = 1;
     }
-
     set({ combat: { ...c, marker, markerDir: dir } });
   },
 
@@ -622,6 +699,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.intruders.length === 0) return;
 
     let hpDelta = 0;
+    const logLines: string[] = [];
     const intruders = s.intruders.map((intr) => {
       const toPlayer = {
         x: s.player.pos.x - intr.pos.x,
@@ -629,21 +707,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
       const d = Math.hypot(toPlayer.x, toPlayer.y) || 1;
       const step = Math.min(d, INTRUDER_SPEED * dt);
-      const pos = {
-        x: clamp(
-          intr.pos.x + (toPlayer.x / d) * step,
-          ROOM.x + 10,
-          ROOM.x + ROOM.w - 10,
-        ),
-        y: clamp(
-          intr.pos.y + (toPlayer.y / d) * step,
-          ROOM.y + 10,
-          ROOM.y + ROOM.h - 10,
-        ),
-      };
+
+      const pos = moveWithCollision(
+        intr.pos.x,
+        intr.pos.y,
+        (toPlayer.x / d) * step,
+        (toPlayer.y / d) * step,
+        INTRUDER_RADIUS,
+      );
       if (dist(pos, s.player.pos) < CONTACT_RADIUS) {
+        const resistMult = Math.max(0.25, 1 - s.player.resistLevel * 0.15);
         hpDelta -=
-          (CONTACT_DAMAGE_BASE + s.night * CONTACT_DAMAGE_PER_LEVEL) * dt;
+          (CONTACT_DAMAGE_BASE + s.night * CONTACT_DAMAGE_PER_LEVEL) *
+          resistMult *
+          dt;
       }
       return { ...intr, pos };
     });
@@ -657,7 +734,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
           "It gets its hands on you.",
-          "The house is overrun. It gets in.",
+          "The chamber is overrun. It gets in.",
         ],
       });
       return;
@@ -666,6 +743,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       intruders,
       player: hpDelta < 0 ? { ...s.player, hp: nextHp } : s.player,
+      log: logLines.length
+        ? [...s.log.slice(-(MAX_LOG - 1)), ...logLines]
+        : s.log,
     });
   },
 
@@ -674,19 +754,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.phase !== "day" && s.phase !== "night") return;
     if (s.intruders.length === 0) return;
 
-    const damage = weaponDamage(s.player.weaponLevel);
+    const { damage, range } = weaponStats(s.player.weaponLevel);
     let nearest: Intruder | null = null;
     let nearestDist = Infinity;
     for (const intr of s.intruders) {
       const d = dist(intr.pos, s.player.pos);
-      if (d <= SWORD_RANGE && d < nearestDist) {
+      if (d <= range && d < nearestDist) {
         nearest = intr;
         nearestDist = d;
       }
     }
     if (!nearest) return;
 
+    playHitImpact();
     const hp = Math.max(0, nearest.hp - damage);
+
     if (hp <= 0) {
       const def = ENTRY_DEFS.find((d) => d.id === nearest!.entryId)!;
       const bonusCoins = nearest.isBoss
@@ -697,7 +779,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         player: { ...s.player, coins: s.player.coins + bonusCoins },
         log: [
           ...s.log.slice(-(MAX_LOG - 1)),
-          `You put it down for good. It won't be back - but the ${def?.label} is still open. +${bonusCoins} coins.`,
+          `You put it down for good. It won't be back — but the ${def.label} is still open. +${bonusCoins} coins.`,
         ],
       });
       return;
@@ -710,44 +792,59 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  buyWeaponUpgrade: () =>
+  chooseUpgrade: (id) =>
     set((s) => {
-      if (s.player.weaponLevel >= MAX_WEAPON_LEVEL) return s;
-      const cost = weaponUpgradeCost(s.player.weaponLevel);
-      if (s.player.coins < cost) return s;
-      return {
-        player: {
-          ...s.player,
-          coins: s.player.coins - cost,
-          weaponLevel: s.player.weaponLevel + 1,
-        },
-        log: [
-          ...s.log.slice(-(MAX_LOG - 1)),
-          "You sharpen your stake further.",
-        ],
-      };
+      if (s.phase !== "dawn") return s;
+      if (!s.pendingUpgrades.includes(id)) return s;
+      return applyChosenUpgrade(s, id);
     }),
 
-  advanceAfterDawn: () =>
-    set((s) => {
-      const piles = s.piles.map((p) => {
-        const def = MATERIAL_PILE_DEFS.find((d) => d.id === p.id)!;
-        return {
-          ...p,
-          boards: Math.max(p.boards, Math.ceil(def.boards * 0.6)),
-        };
-      });
-      return {
-        phase: "day",
-        night: s.night + 1,
-        piles,
-        log: [
-          ...s.log.slice(-(MAX_LOG - 1)),
-          `Level ${s.night + 1}. Time to prepare.`,
-        ],
-      };
-    }),
+  tickDawn: (dt) => {
+    const s = get();
+    if (s.phase !== "dawn") return;
+    const timeRemaining = s.timeRemaining - dt;
+    if (timeRemaining <= 0) {
+      const id = s.pendingUpgrades[0];
+      set(id ? applyChosenUpgrade(s, id) : nextDayState(s));
+      return;
+    }
+    set({ timeRemaining });
+  },
 }));
+
+function applyChosenUpgrade(s: GameState, id: UpgradeId): Partial<GameState> {
+  const player = applyUpgrade(s.player, id);
+  const dayState = nextDayState(s);
+  return {
+    ...dayState,
+    player,
+    pendingUpgrades: [],
+    log: [
+      ...s.log.slice(-(MAX_LOG - 1)),
+      `You take ${UPGRADE_DEFS[id].label}.`,
+      `Level ${s.night + 1}. Time to prepare.`,
+    ],
+  };
+}
+
+function nextDayState(s: GameState): Partial<GameState> {
+  const nextNight = s.night + 1;
+  const piles = pilesForNight(s.piles, nextNight).map((p) => {
+    const def = MATERIAL_PILE_DEFS.find((d) => d.id === p.id)!;
+    const boards = Math.max(p.boards, Math.ceil(def.boards * 0.6));
+    return { ...p, boards, openedAt: boards > 0 ? null : p.openedAt };
+  });
+  return {
+    phase: "day",
+    night: s.night + 1,
+    timeRemaining: DAY_DURATION,
+    piles,
+    log: [
+      ...s.log.slice(-(MAX_LOG - 1)),
+      `Level ${s.night + 1}. Time to prepare.`,
+    ],
+  };
+}
 
 function makeCombat(
   entryId: EntryId,
@@ -755,9 +852,10 @@ function makeCombat(
   weaponLevel: number,
 ): CombatState {
   const isBoss = isBossLevel(night) && entryId === BOSS_ENTRY_ID;
-  const baseHits = isBoss ? 6 : 4;
+  const baseHits = (isBoss ? 6 : 4) + Math.floor((night - 1) / 5);
   const hitsNeeded = Math.max(2, baseHits - weaponLevel);
-  const zoneWidth = Math.max(0.14, (isBoss ? 0.26 : 0.3) - night * 0.012);
+  const maxMisses = Math.max(2, 3 - Math.floor((night - 1) / 4));
+  const zoneWidth = Math.max(0.11, (isBoss ? 0.24 : 0.28) - night * 0.018);
   return {
     entryId,
     isBoss,
@@ -766,10 +864,10 @@ function makeCombat(
     hitsLanded: 0,
     hitsNeeded,
     misses: 0,
-    maxMisses: 3,
+    maxMisses,
     marker: 0,
     markerDir: 1,
-    markerSpeed: (isBoss ? 1.15 : 0.9) + night * 0.08,
+    markerSpeed: (isBoss ? 1.2 : 0.95) + night * 0.11,
     zoneStart: Math.random() * (1 - zoneWidth),
     zoneWidth,
     resolution: "pending",
@@ -795,20 +893,11 @@ function resolveCombatWin(finishedCombat: CombatState) {
       respite: 6,
     },
   };
-  let combat: CombatState | null = null;
-  let queue = s.combatQueue;
-  let phase: GameState["phase"] = "night";
-  if (queue.length > 0) {
-    const [id, ...rest] = queue;
-    combat = makeCombat(id, s.night, s.player.weaponLevel);
-    queue = rest;
-    phase = "combat";
-  }
+
   useGameStore.setState({
     entries,
-    combat,
-    combatQueue: queue,
-    phase,
+    combat: null,
+    phase: "night",
     log: [
       ...s.log.slice(-(MAX_LOG - 1)),
       `You drove it back from the ${def.label}.`,
@@ -832,30 +921,19 @@ function resolveCombatLose(finishedCombat: CombatState) {
     },
   };
   const intruders = [...s.intruders, spawnIntruder(def, s.night)];
+
   const nextHp = clamp(s.player.hp - HOLLOW_TOUCH_DAMAGE, 0, s.player.maxHp);
   const gameover = nextHp <= 0;
-
-  let combat: CombatState | null = null;
-  let queue = s.combatQueue;
-  let phase: GameState["phase"] = gameover ? "gameover" : "night";
-  if (!gameover && queue.length > 0) {
-    const [id, ...rest] = queue;
-    combat = makeCombat(id, s.night, s.player.weaponLevel);
-    queue = rest;
-    phase = "combat";
-  }
-
   useGameStore.setState({
     entries,
     intruders,
-    combat,
-    combatQueue: queue,
-    phase,
+    combat: null,
+    phase: gameover ? "gameover" : "night",
     player: { ...s.player, hp: nextHp },
     log: [
       ...s.log.slice(-(MAX_LOG - 1)),
       `It broke through the ${def.label}!`,
-      ...(gameover ? ["The house is overrun. It gets in."] : []),
+      ...(gameover ? ["The chamber is overrun. It gets in."] : []),
     ],
   });
 }

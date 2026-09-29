@@ -14,12 +14,6 @@ import {
   PLAYER_RADIUS,
   PLAYER_SPEED,
 } from "@/game/layouts";
-import { clamp, distToRect, dist } from "@/game/physics";
-import { drawEntry } from "./entry-art";
-import { drawPlayer } from "./player-art";
-import type { MaterialPile, Vec2 } from "@/game/types";
-import { drawHollow } from "./hollow-art";
-import { playBang, playKnock, playStrain } from "@/game/sound";
 import {
   drawSheetTile,
   drawTileGrid,
@@ -27,7 +21,13 @@ import {
   moveWithCollision,
   TILE,
 } from "@/game/tilemap";
+import { distToRect, dist } from "@/game/physics";
+import { drawEntry } from "./entry-art";
+import { drawPlayer } from "./player-art";
+import { drawHollow } from "./hollow-art";
+import { playBang, playKnock, playStrain } from "@/game/sound";
 import { getSprite, isSpriteReady } from "@/game/sprites";
+import type { MaterialPile, Vec2 } from "@/game/types";
 
 const CHEST_ANIM_MS = 500;
 const CHEST_ANIM_FRAMES = [89, 90, 91, 92];
@@ -132,6 +132,7 @@ export default function RoomCanvas() {
   const findNearby = useCallback(() => {
     const s = useGameStore.getState();
     if (s.phase === "combat") return null;
+
     let best: { kind: "pile" | "entry"; id: string; d: number } | null = null;
 
     for (const pile of s.piles) {
@@ -148,9 +149,11 @@ export default function RoomCanvas() {
       if (entry.underAttack && entry.warmup <= 0) continue;
       if (!entry.breached && entry.barricadeLevel >= 3) continue;
       const d = distToRect(posRef.current, def.zone);
-      if (d <= INTERACT_RANGE && (!best || d < best.d))
+      if (d <= INTERACT_RANGE && (!best || d < best.d)) {
         best = { kind: "entry", id: def.id, d };
+      }
     }
+
     return best;
   }, []);
 

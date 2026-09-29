@@ -1,10 +1,12 @@
-import { BARREL_BOXES, CHEST_BOXES } from "./collision-data";
-import { GRID_COLS, GRID_ROWS } from "./map-data";
-import { findGates, TILE } from "./tilemap";
 import type { EntryDef, EntryId, Vec2 } from "./types";
+import { findGates, TILE } from "./tilemap";
+import { GRID_COLS, GRID_ROWS } from "./map-data";
+import { BARREL_BOXES, CHEST_BOXES } from "./collision-data";
 
 export const CANVAS_W = GRID_COLS * TILE;
 export const CANVAS_H = GRID_ROWS * TILE;
+
+export const WALL_THICKNESS = TILE;
 
 export const ROOM = {
   x: TILE,
@@ -21,8 +23,8 @@ const GATES = findGates();
 function zoneFor(gate: { aX: number; aY: number; bX: number; bY: number }) {
   const left = Math.min(gate.aX, gate.bX) - TILE / 2;
   const top = Math.min(gate.aY, gate.bY) - TILE / 2;
-  const right = Math.min(gate.aY, gate.bX) + TILE / 2;
-  const bottom = Math.min(gate.aY, gate.bY) + TILE / 2;
+  const right = Math.max(gate.aX, gate.bX) + TILE / 2;
+  const bottom = Math.max(gate.aY, gate.bY) + TILE / 2;
   return { x: left, y: top, w: right - left, h: bottom - top };
 }
 

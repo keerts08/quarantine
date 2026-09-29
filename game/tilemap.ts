@@ -83,7 +83,7 @@ export function moveWithCollision(
     if (!circleHitsSolid(nx, candidate, radius)) ny = candidate;
   }
   return { x: nx, y: ny };
-} 
+}
 
 function srcRectFor(t: number) {
   const sc = t % SHEET_COLS;

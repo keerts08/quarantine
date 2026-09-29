@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Oswald, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
 
 const display = Oswald({
   variable: "--font-display",
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={cn("h-full", display.variable, body.variable)}>
       <body className="min-h-full bg-void text-ink font-[family-name:var(--font-body)]">
         {children}
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

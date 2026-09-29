@@ -28,7 +28,6 @@ export default function Hud() {
       <div className="flex items-center gap-4">
         <span className={isBossLevel ? "text-danger" : "text-accent"}>
           Level {night}
-          {isBossLevel ? " — Warden" : ""}
         </span>
         {phase === "day" && (
           <span className="text-ink-dim">

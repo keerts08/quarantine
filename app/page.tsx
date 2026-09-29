@@ -2,11 +2,7 @@
 
 import Hud from "@/components/hud";
 import RoomCanvas from "@/components/room-canvas";
-import {
-  MAX_WEAPON_LEVEL,
-  useGameStore,
-  weaponUpgradeCost,
-} from "@/game/store";
+import { MAX_WEAPON_LEVEL, useGameStore } from "@/game/store";
 import { Button } from "@/components/ui/button";
 import CombatOverlay from "@/components/combat-overlay";
 
@@ -21,9 +17,6 @@ export default function Home() {
   const hasIntruders = useGameStore((s) => s.intruders.length > 0);
   const startGame = useGameStore((s) => s.startGame);
   const beginNight = useGameStore((s) => s.beginNight);
-  const advanceAfterDawn = useGameStore((s) => s.advanceAfterDawn);
-  const buyWeaponUpgrade = useGameStore((s) => s.buyWeaponUpgrade);
-  const upgradeCost = weaponUpgradeCost(weaponLevel);
   const maxedWeapon = weaponLevel >= MAX_WEAPON_LEVEL;
 
   return (
@@ -81,22 +74,7 @@ export default function Home() {
                 Sharpened Stake - level{weaponLevel}
                 {maxedWeapon ? "(max)" : ""}
               </p>
-              <Button
-                onClick={buyWeaponUpgrade}
-                disabled={maxedWeapon || coins < upgradeCost}
-              >
-                {maxedWeapon
-                  ? "Fully Sharpened"
-                  : `Sharpen - ${upgradeCost} coins.`}
-              </Button>
-              <p className="text-xs text-ink-dim">You have {coins} coins</p>
             </div>
-            <Button
-              onClick={advanceAfterDawn}
-              className="rounded-sm border border-accent px-6 py-2 uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-void"
-            >
-              Prepare for Level {night + 1}
-            </Button>
           </div>
         )}
 
