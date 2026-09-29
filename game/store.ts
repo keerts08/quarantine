@@ -220,6 +220,10 @@ function pickUpgrades(player: PlayerState): UpgradeId[] {
   return picks;
 }
 
+function barricadeUpkeepCost(level: BarricadeLevel) {
+  return level;
+}
+
 function barricadeCostFor(level: BarricadeLevel, handsLevel: number) {
   return Math.max(1, BARRICADE_COST[level] - handsLevel);
 }
@@ -826,14 +830,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 }));
 
 function applyChosenUpgrade(s: GameState, id: UpgradeId): Partial<GameState> {
-  const player = applyUpgrade(s.player, id);
   const dayState = nextDayState(s);
+  const player = applyUpgrade(dayState.player ?? s.player, id);
   return {
     ...dayState,
     player,
     pendingUpgrades: [],
     log: [
-      ...s.log.slice(-(MAX_LOG - 1)),
+      ...(dayState.log ?? s.log).slice(-(MAX_LOG - 1)),
       `You take ${UPGRADE_DEFS[id].label}.`,
       `Level ${s.night + 1}. Time to prepare.`,
     ],
@@ -841,20 +845,51 @@ function applyChosenUpgrade(s: GameState, id: UpgradeId): Partial<GameState> {
 }
 
 function nextDayState(s: GameState): Partial<GameState> {
+  let boards = s.player.boards;
+  const entries = { ...s.entries };
+  const upkeepLines: string[] = [];
+
+  for (const def of ENTRY_DEFS) {
+    const e = entries[def.id];
+    if (e.barricadeLevel === 0 || e.breached) continue;
+    const cost = barricadeUpkeepCost(e.barricadeLevel);
+    if (boards >= cost) {
+      boards -= cost;
+    } else {
+      const nextLevel = (e.barricadeLevel - 1) as BarricadeLevel;
+      entries[def.id] = {
+        ...e,
+        barricadeLevel: nextLevel,
+        integrity: BARRICADE_MAX_INTEGRITY[nextLevel],
+      };
+      upkeepLines.push(
+        `Couldn't maintain the ${def.label} overnight — down to level ${nextLevel}.`,
+      );
+    }
+  }
+
   const nextNight = s.night + 1;
   const piles = pilesForNight(s.piles, nextNight).map((p) => {
     const def = MATERIAL_PILE_DEFS.find((d) => d.id === p.id)!;
-    const boards = Math.max(p.boards, Math.ceil(def.boards * 0.6));
-    return { ...p, boards, openedAt: boards > 0 ? null : p.openedAt };
+    const pileBoards = Math.max(p.boards, Math.ceil(def.boards * 0.6));
+    return {
+      ...p,
+      boards: pileBoards,
+      openedAt: pileBoards > 0 ? null : p.openedAt,
+    };
   });
+
   return {
     phase: "day",
-    night: s.night + 1,
+    night: nextNight,
     timeRemaining: DAY_DURATION,
     piles,
+    entries,
+    player: { ...s.player, boards },
     log: [
       ...s.log.slice(-(MAX_LOG - 1)),
-      `Level ${s.night + 1}. Time to prepare.`,
+      ...upkeepLines,
+      `Level ${nextNight}. Time to prepare.`,
     ],
   };
 }
