@@ -2,20 +2,62 @@
 
 import Hud from "@/components/hud";
 import RoomCanvas from "@/components/room-canvas";
-import { MAX_WEAPON_LEVEL, useGameStore } from "@/game/store";
+import {
+  MAX_WEAPON_LEVEL,
+  UPGRADE_DEFS,
+  UpgradeDef,
+  useGameStore,
+} from "@/game/store";
 import { Button } from "@/components/ui/button";
 import CombatOverlay from "@/components/combat-overlay";
 import JumpscareOverlay from "@/components/jumpscare-overlay";
 import LogToaster from "@/components/log-toaster";
 import HowToPlayDialog from "@/components/how-to-play";
 import { useState } from "react";
+import { UpgradeId } from "@/game/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+function UpgradeCard({
+  id,
+  onPick,
+}: {
+  id: UpgradeId;
+  onPick: (id: UpgradeId) => void;
+}) {
+  const def = UPGRADE_DEFS[id];
+  return (
+    <button
+      onClick={() => onPick(id)}
+      className="flex flex-1 flex-col items-center gap-3 rounded-sm border border-line bg-panel/60 px-4 py-5 text-center transition-colors hover:border-accent hover:bg-panel"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={def.icon}
+        alt=""
+        className="h-14 w-14 [image-rendering:pixelated]"
+      />
+      <p className="font-[family-name:var(--font-display)] uppercase tracking-widest text-ink">
+        {def.label}
+      </p>
+      <p className="text-xs text-ink-faint">{def.hint}</p>
+    </button>
+  );
+}
 
 export default function Home() {
   const [howToOpen, setHowToOpen] = useState(false);
   const phase = useGameStore((s) => s.phase);
   const night = useGameStore((s) => s.night);
-  const log = useGameStore((s) => s.log);
   const coins = useGameStore((s) => s.player.coins);
+  const timeRemaining = useGameStore((s) => s.timeRemaining);
+  const pendingUpgrades = useGameStore((s) => s.pendingUpgrades);
+  const chooseUpgrade = useGameStore((s) => s.chooseUpgrade);
   const weaponLevel = useGameStore((s) => s.player.weaponLevel);
   const lastCoinsEarned = useGameStore((s) => s.lastCoinsEarned);
 
@@ -23,8 +65,8 @@ export default function Home() {
   const startGame = useGameStore((s) => s.startGame);
   const maxedWeapon = weaponLevel >= MAX_WEAPON_LEVEL;
 
-    const audioEnabled = useGameStore((s) => s.audioEnabled);
-    const toggleAudio = useGameStore((s) => s.toggleAudio);
+  const audioEnabled = useGameStore((s) => s.audioEnabled);
+  const toggleAudio = useGameStore((s) => s.toggleAudio);
 
   return (
     <div className="flex h-dvh w-full flex-col items-center justify-center gap-2 overflow-hidden p-2">
@@ -87,6 +129,43 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {phase === "gameover" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-void/95">
+                <h2 className="font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-danger">
+                  It Got In
+                </h2>
+                <p className="text-ink-dim">
+                  {night <= 1
+                    ? "You didn't survive the first night."
+                    : `You held out for ${night - 1} level${night - 1 === 1 ? "" : "s"}.`}
+                </p>
+                <button
+                  onClick={startGame}
+                  className="rounded-sm border border-line px-6 py-2 uppercase tracking-widest text-ink transition-colors hover:border-accent hover:text-accent"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+
+            {phase === "victory" && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-void/95">
+                <h2 className="font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-accent">
+                  You Survived
+                </h2>
+                <p className="max-w-sm text-center text-ink-dim">
+                  Every night it threw at you, and it still couldn&apos;t get
+                  in.
+                </p>
+                <button
+                  onClick={startGame}
+                  className="rounded-sm border border-accent px-6 py-2 uppercase tracking-widest text-accent transition-colors hover:bg-accent hover:text-void"
+                >
+                  Play Again
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -123,6 +202,34 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <Dialog open={phase === "dawn"}>
+        <DialogContent
+          showCloseButton={false}
+          className="border-line bg-panel text-ink sm:max-w-2xl"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-[family-name:var(--font-display)] uppercase tracking-widest text-accent">
+              Dawn — Level {night} Survived
+            </DialogTitle>
+            <DialogDescription className="text-ink-dim">
+              <span className="text-warn">+{lastCoinsEarned} coins</span>{" "}
+              earned. Pick one — the next night begins on its own in{" "}
+              {Math.max(0, Math.ceil(timeRemaining))}s.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {pendingUpgrades.map((id) => (
+              <UpgradeCard key={id} id={id} onPick={chooseUpgrade} />
+            ))}
+          </div>
+
+          <p className="text-center text-xs text-ink-faint">
+            You have {coins} coins.
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

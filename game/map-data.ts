@@ -1,6 +1,9 @@
 // made map then converted into this form using claude-
 
-export interface MapCell { t: number; rot: 0 | 90 | 180 | 270; }
+export interface MapCell {
+  t: number;
+  rot: 0 | 90 | 180 | 270;
+}
 export const GRID_COLS = 30;
 export const GRID_ROWS = 19;
 export const GRID: MapCell[][] = [

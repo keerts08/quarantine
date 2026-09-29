@@ -107,7 +107,6 @@ body {
 }
 
 @keyframes pulseWarn {
-
   0%,
   100% {
     opacity: 1;
@@ -123,7 +122,6 @@ body {
 }
 
 @keyframes screenShake {
-
   0%,
   100% {
     transform: translate(0, 0);
@@ -151,7 +149,6 @@ body {
 }
 
 @keyframes jumpscareShake {
-
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -191,7 +188,6 @@ body {
 }
 
 @keyframes jumpscareFlicker {
-
   0%,
   100% {
     opacity: 1;

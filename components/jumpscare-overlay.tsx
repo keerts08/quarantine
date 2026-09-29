@@ -6,7 +6,12 @@ import { playJumpscareSting } from "@/game/sound";
 
 const DURATION_MS = 1100;
 
-function drawScreamerFace(ctx: CanvasRenderingContext2D, w: number, h: number, t: number) {
+function drawScreamerFace(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  t: number,
+) {
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, w, h);
 

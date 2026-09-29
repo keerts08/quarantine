@@ -81,13 +81,7 @@ export interface Intruder {
 }
 
 export type Phase =
-  | "title"
-  | "day"
-  | "night"
-  | "combat"
-  | "dawn"
-  | "gameover"
-  | "victory";
+  "title" | "day" | "night" | "combat" | "dawn" | "gameover" | "victory";
 
 export interface CombatState {
   entryId: EntryId;
@@ -121,12 +115,7 @@ export interface PlayerState {
 }
 
 export type UpgradeId =
-  | "weapon"
-  | "vitals"
-  | "hands"
-  | "resist"
-  | "speed"
-  | "scavenger";
+  "weapon" | "vitals" | "hands" | "resist" | "speed" | "scavenger";
 
 export interface NightConfig {
   night: number;
