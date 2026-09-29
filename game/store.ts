@@ -370,7 +370,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
 
   resetGame: () =>
-    set((s) => ({ ...initialState(), audioEnabled: s.audioEnabled })),
+    set((s) => {
+      wasInContact = false;
+      return { ...initialState(), audioEnabled: s.audioEnabled }
+    }),
 
   toggleAudio: () =>
     set((s) => {

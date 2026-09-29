@@ -3,9 +3,7 @@
 import Hud from "@/components/hud";
 import RoomCanvas from "@/components/room-canvas";
 import {
-  MAX_WEAPON_LEVEL,
   UPGRADE_DEFS,
-  UpgradeDef,
   useGameStore,
 } from "@/game/store";
 import { Button } from "@/components/ui/button";
@@ -59,12 +57,10 @@ export default function Home() {
   const timeRemaining = useGameStore((s) => s.timeRemaining);
   const pendingUpgrades = useGameStore((s) => s.pendingUpgrades);
   const chooseUpgrade = useGameStore((s) => s.chooseUpgrade);
-  const weaponLevel = useGameStore((s) => s.player.weaponLevel);
   const lastCoinsEarned = useGameStore((s) => s.lastCoinsEarned);
 
   const hasIntruders = useGameStore((s) => s.intruders.length > 0);
   const startGame = useGameStore((s) => s.startGame);
-  const maxedWeapon = weaponLevel >= MAX_WEAPON_LEVEL;
 
   const audioEnabled = useGameStore((s) => s.audioEnabled);
   const toggleAudio = useGameStore((s) => s.toggleAudio);

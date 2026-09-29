@@ -67,9 +67,11 @@ function shortLabelFor(line: string): string {
 }
 
 function ToastIcon({ src }: { src: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
   return (
-    <img src={src} alt="" className="h-5 w-5 [image-rendering:pixelated]" />
+    <>
+      {/** eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="h-5 w-5 [image-rendering:pixelated]" />
+    </>
   );
 }
 

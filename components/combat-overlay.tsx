@@ -66,10 +66,6 @@ export default function CombatOverlay() {
 
   if (!combat) return null;
   const def = ENTRY_DEFS.find((d) => d.id === combat.entryId)!;
-  const hpPct = Math.max(
-    0,
-    100 - (combat.hitsLanded / combat.hitsNeeded) * 100,
-  );
   const title = combat.isBoss
     ? `The Warden forces the ${def.label}`
     : `It's forcing the ${def.label}`;
