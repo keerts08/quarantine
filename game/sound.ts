@@ -7,9 +7,9 @@ export function startMusic() {
   if (!musicEL) {
     musicEL = new Audio("/bg.mp3");
     musicEL.loop = true;
-    musicEL.volume = 0.14;
+    musicEL.volume = 0.03;
   }
-  if (enabled) musicEL.play().catch(() => {})
+  if (enabled) musicEL.play().catch(() => {});
 }
 
 export function stopMusic() {
@@ -19,7 +19,7 @@ export function stopMusic() {
 export function setSoundEnabled(value: boolean) {
   enabled = value;
   if (!value) musicEL?.pause();
-  else musicEL?.play().catch(() => {})
+  else musicEL?.play().catch(() => {});
 }
 
 function getCtx(): AudioContext | null {
