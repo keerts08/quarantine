@@ -23,19 +23,20 @@ function toneFor(line: string): "error" | "warning" | undefined {
 
 function iconFor(line: string): string {
   if (line.startsWith("It broke through") || line.startsWith("It got through"))
-    return "/sprites/door-breached.png";
+    return "/sprites/enemy-hollow.png";
   if (line.startsWith("It's breaking through"))
-    return "/sprites/door-level1.png";
+    return "/sprites/enemy-hollow.png";
   if (line.startsWith("You see something")) return "/sprites/enemy-hollow.png";
   if (
     line.startsWith("It gets its hands") ||
-    line.startsWith("The chamber is overrun")
+    line.startsWith("The chamber is overrun") ||
+    line.startsWith("It claws at you")
   )
     return "/sprites/enemy-hollow.png";
   if (line.startsWith("You put it down")) return "/sprites/sword-2.png";
   if (line.startsWith("Salvaged")) return "/sprites/icon-boards.png";
   if (line.startsWith("Reinforced") || line.startsWith("You drive it back"))
-    return "/sprites/door-level2.png";
+    return "/sprites/icon-boards.png";
   if (line.startsWith("You take")) return "/sprites/icon-health.png";
   if (line.startsWith("Dawn breaks")) return "/sprites/icon-health.png";
   return "/sprites/icon-boards.png";

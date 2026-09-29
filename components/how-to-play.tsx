@@ -57,7 +57,7 @@ export default function HowToPlayDialog({
             door/window. More boards make it stronger.
           </Step>
 
-          <Step icon="/sprites/door-level2.png" label="Night">
+          <Step icon="/sprites/sword-2.png" label="Night">
             Weak doors can break. Press <span className="text-ink">Space</span>{" "}
             when the marker hits the bright zone to push enemies back.
           </Step>

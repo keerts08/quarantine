@@ -21,7 +21,7 @@ import { playHitImpact, playMiss, setSoundEnabled } from "./sound";
 import { moveWithCollision } from "./tilemap";
 
 const INTRUDER_RADIUS = 12;
-
+let wasInContact = false;
 const MAX_LOG = 40;
 const HOLLOW_TOUCH_DAMAGE = 8;
 const WARMUP_SECONDS = 1.8;
@@ -359,12 +359,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((s) => ({ log: [...s.log.slice(-(MAX_LOG - 1)), line] })),
 
   startGame: () =>
-    set((s) => ({
-      ...initialState(),
-      audioEnabled: s.audioEnabled,
-      phase: "day",
-      timeRemaining: DAY_DURATION,
-    })),
+    set((s) => {
+      wasInContact = false;
+      return {
+        ...initialState(),
+        audioEnabled: s.audioEnabled,
+        phase: "day",
+        timeRemaining: DAY_DURATION,
+      };
+    }),
 
   resetGame: () =>
     set((s) => ({ ...initialState(), audioEnabled: s.audioEnabled })),
@@ -699,6 +702,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.intruders.length === 0) return;
 
     let hpDelta = 0;
+    let anyContact = false;
     const logLines: string[] = [];
     const intruders = s.intruders.map((intr) => {
       const toPlayer = {
@@ -716,6 +720,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         INTRUDER_RADIUS,
       );
       if (dist(pos, s.player.pos) < CONTACT_RADIUS) {
+        anyContact = true;
         const resistMult = Math.max(0.25, 1 - s.player.resistLevel * 0.15);
         hpDelta -=
           (CONTACT_DAMAGE_BASE + s.night * CONTACT_DAMAGE_PER_LEVEL) *
@@ -724,6 +729,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
       return { ...intr, pos };
     });
+
+    if (anyContact && !wasInContact) {
+      logLines.push("It claws at you.");
+    }
+    wasInContact = anyContact;
 
     const nextHp = clamp(s.player.hp + hpDelta, 0, s.player.maxHp);
     if (nextHp <= 0 && hpDelta < 0) {

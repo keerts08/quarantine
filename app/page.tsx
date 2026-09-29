@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { startMusic } from "@/game/sound";
 
 function UpgradeCard({
   id,
@@ -99,7 +100,10 @@ export default function Home() {
                 </p>
                 <div className="flex w-full max-w-xs flex-col gap-2">
                   <Button
-                    onClick={startGame}
+                    onClick={() => {
+                      startGame();
+                      startMusic();
+                    }}
                     className="rounded-sm bg-accent text-void uppercase py-2.5 tracking-widest w-full hover:text-accent border border-accent hover:rounded-none transition-all"
                   >
                     Play
@@ -167,40 +171,8 @@ export default function Home() {
               </div>
             )}
           </div>
-        </div>
-
-        {phase === "dawn" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-            <h2 className="font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-accent">
-              Dawn
-            </h2>
-            <p className="text-ink-dim">
-              You survived level {night}.{" "}
-              <span className="text-warn">+{lastCoinsEarned} coins</span>
-            </p>
-
-            <div className="">
-              <p className="text-sm text-ink-dim">
-                Sharpened Stake - level{weaponLevel}
-                {maxedWeapon ? "(max)" : ""}
-              </p>
-            </div>
-          </div>
-        )}
-
+        </div>  
         <HowToPlayDialog open={howToOpen} onOpenChange={setHowToOpen} />
-
-        {phase === "gameover" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-void/95">
-            <h2 className="font-[family-name:var(--font-display)] text-3xl uppercase tracking-widest text-danger">
-              It Got In
-            </h2>
-            <p className="text-ink-dim">
-              You held out for {night} level{night === 1 ? "" : "s"}.
-            </p>
-            <Button onClick={startGame}>Try Again</Button>
-          </div>
-        )}
       </div>
 
       <Dialog open={phase === "dawn"}>

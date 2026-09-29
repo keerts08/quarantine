@@ -1,8 +1,25 @@
 let ctx: AudioContext | null = null;
 let enabled = true;
+let musicEL: HTMLAudioElement | null = null;
+
+export function startMusic() {
+  if (typeof window === "undefined") return;
+  if (!musicEL) {
+    musicEL = new Audio("/bg.mp3");
+    musicEL.loop = true;
+    musicEL.volume = 0.14;
+  }
+  if (enabled) musicEL.play().catch(() => {})
+}
+
+export function stopMusic() {
+  musicEL?.pause();
+}
 
 export function setSoundEnabled(value: boolean) {
   enabled = value;
+  if (!value) musicEL?.pause();
+  else musicEL?.play().catch(() => {})
 }
 
 function getCtx(): AudioContext | null {
