@@ -1,6 +1,10 @@
 let ctx: AudioContext | null = null;
 let enabled = true;
 let musicEL: HTMLAudioElement | null = null;
+let droneOsc1: OscillatorNode | null = null;
+let droneOsc2: OscillatorNode | null = null;
+let droneGain: GainNode | null = null;
+let droneLfo: OscillatorNode | null = null;
 
 export function startMusic() {
   if (typeof window === "undefined") return;
@@ -18,6 +22,9 @@ export function stopMusic() {
 
 export function setSoundEnabled(value: boolean) {
   enabled = value;
+  if (droneGain && ctx) {
+    droneGain.gain.setValueAtTime(value ? 0.05 : 0, ctx.currentTime);
+  }
   if (!value) musicEL?.pause();
   else musicEL?.play().catch(() => {});
 }
@@ -124,4 +131,71 @@ export function playJumpscareSting() {
   thud(ac, now, 940, 55, 0.6, 0.4, "square");
   noiseBurst(ac, now, 0.45, 0.5, 2200);
   noiseBurst(ac, now + 0.05, 0.3, 0.35, 500);
+}
+
+export function startDrone() {
+  const ac = getCtx();
+  if (!ac || droneGain) return; 
+
+  droneGain = ac.createGain();
+  droneGain.gain.setValueAtTime(0, ac.currentTime);
+  droneGain.gain.linearRampToValueAtTime(0.05, ac.currentTime + 2);
+
+  const filter = ac.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 220;
+
+  droneOsc1 = ac.createOscillator();
+  droneOsc1.type = "sawtooth";
+  droneOsc1.frequency.value = 55;
+  droneOsc2 = ac.createOscillator();
+  droneOsc2.type = "sawtooth";
+  droneOsc2.frequency.value = 58; 
+
+  droneLfo = ac.createOscillator();
+  droneLfo.frequency.value = 0.07;
+  const lfoGain = ac.createGain();
+  lfoGain.gain.value = 60;
+  droneLfo.connect(lfoGain).connect(filter.frequency); 
+
+  droneOsc1.connect(filter);
+  droneOsc2.connect(filter);
+  filter.connect(droneGain).connect(ac.destination);
+
+  droneOsc1.start();
+  droneOsc2.start();
+  droneLfo.start();
+}
+
+export function stopDrone() {
+  const ac = ctx;
+  if (droneGain && ac)
+    droneGain.gain.linearRampToValueAtTime(0, ac.currentTime + 1);
+  const osc1 = droneOsc1,
+    osc2 = droneOsc2,
+    lfo = droneLfo;
+  droneOsc1 = droneOsc2 = droneLfo = droneGain = null;
+  setTimeout(() => {
+    osc1?.stop();
+    osc2?.stop();
+    lfo?.stop();
+  }, 1100);
+}
+
+export function playCreak() {
+  const ac = getCtx();
+  if (!ac) return;
+  thud(ac, ac.currentTime, 240, 180, 0.5, 0.06, "sawtooth");
+}
+
+export function playDistantThud() {
+  const ac = getCtx();
+  if (!ac) return;
+  noiseBurst(ac, ac.currentTime, 0.35, 0.05, 350);
+}
+
+export function playFaintWhisper() {
+  const ac = getCtx();
+  if (!ac) return;
+  noiseBurst(ac, ac.currentTime, 0.6, 0.04, 1800);
 }
