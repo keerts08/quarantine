@@ -60,6 +60,7 @@ export interface EntryState {
   underAttack: boolean;
   warmup: number;
   respite: number;
+  fake: boolean;
 }
 
 export interface MaterialPile {

@@ -25,6 +25,7 @@ let wasInContact = false;
 const MAX_LOG = 40;
 const HOLLOW_TOUCH_DAMAGE = 8;
 export const WARMUP_SECONDS = 1.8;
+const FAKE_ALARM_CHANCE_PER_SEC = 1 / 45;
 const BOSS_ENTRY_ID: EntryId = "frontDoor";
 
 export const MAX_NIGHT = 10;
@@ -247,6 +248,7 @@ function freshEntries(): Record<EntryId, EntryState> {
       underAttack: false,
       warmup: 0,
       respite: 0,
+      fake: false,
     };
   }
   return out;
@@ -319,6 +321,7 @@ function nightfallState(s: GameState): Partial<GameState> {
       integrity:
         e.barricadeLevel > 0 ? BARRICADE_MAX_INTEGRITY[e.barricadeLevel] : 0,
       underAttack: false,
+      fake: false,
       warmup: 0,
       respite: 4,
     };
@@ -447,6 +450,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             barricadeLevel: nextLevel,
             breached: false,
             underAttack: false,
+            fake: false,
             warmup: 0,
             respite: 3,
             integrity: BARRICADE_MAX_INTEGRITY[nextLevel],
@@ -512,8 +516,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (e.warmup > 0) {
           const nextWarmup = e.warmup - dt;
           if (nextWarmup <= 0) {
-            entries[def.id] = { ...e, warmup: -1 };
-            newlyReady.push(def.id);
+            if (e.fake) {
+              entries[def.id] = { ...e, underAttack: false, warmup: -1, fake: false };
+            } else {
+              entries[def.id] = { ...e, warmup: -1 };
+              newlyReady.push(def.id);
+            }
           } else {
             entries[def.id] = { ...e, warmup: nextWarmup };
           }
@@ -542,9 +550,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const prevPct = e.integrity / max;
       const nextPct = Math.max(0, nextIntegrity) / max;
       if (prevPct > 0.5 && nextPct <= 0.5) {
-        logLines.push(`The ${def.label}'s barricade is straining.`)
+        logLines.push(`The ${def.label}'s barricade is straining.`);
       } else if (prevPct > 0.2 && nextPct <= 0.2) {
-        logLines.push(`The ${def.label}'s barricade is about to give way!`)
+        logLines.push(`The ${def.label}'s barricade is about to give way!`);
       }
     }
     candidates.sort((a, b) => a.level - b.level);
@@ -558,6 +566,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
       newlySpotted.push(id);
     });
+    const usedSlots = Math.min(candidates.length, freeSlots);
+    if (
+      freeSlots - usedSlots > 0 &&
+      Math.random() < FAKE_ALARM_CHANCE_PER_SEC * dt
+    ) {
+      const spottedThisTick = new Set(newlySpotted);
+      const bluffable = ENTRY_DEFS.filter(
+        (def) =>
+          isEntryActive(def.id, s.night) &&
+          !entries[def.id].breached &&
+          !entries[def.id].underAttack &&
+          !spottedThisTick.has(def.id),
+      );
+      if (bluffable.length > 0) {
+        const def = bluffable[Math.floor(Math.random() * bluffable.length)];
+        entries[def.id] = {
+          ...entries[def.id],
+          underAttack: true,
+          warmup: WARMUP_SECONDS,
+          fake: true,
+        };
+        newlySpotted.push(def.id);
+      }
+    }
 
     const timeRemaining = s.timeRemaining - dt;
 
