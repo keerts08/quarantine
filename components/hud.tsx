@@ -1,6 +1,6 @@
 "use client";
 
-import { useGameStore } from "@/game/store";
+import { isBossLevel, useGameStore } from "@/game/store";
 import { swordSpriteFor } from "@/game/sprites";
 
 function fmtTime(seconds: number) {
@@ -19,14 +19,13 @@ export default function Hud() {
   const boards = useGameStore((s) => s.player.boards);
   const coins = useGameStore((s) => s.player.coins);
   const weaponLevel = useGameStore((s) => s.player.weaponLevel);
-  const isBossLevel = night % 3 === 0;
 
   const hpPct = Math.round((hp / maxHp) * 100);
 
   return (
     <div className="flex items-center justify-between gap-6 border-b border-line bg-panel/80 px-5 py-3 font-[family-name:var(--font-display)] uppercase tracking-widest text-sm">
       <div className="flex items-center gap-4">
-        <span className={isBossLevel ? "text-danger" : "text-accent"}>
+        <span className={isBossLevel(night) ? "text-danger" : "text-accent"}>
           Level {night}
         </span>
         {phase === "day" && (

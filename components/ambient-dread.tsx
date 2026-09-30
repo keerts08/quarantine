@@ -22,7 +22,7 @@ export default function AmbientDread() {
     const active = phase === "day" || phase === "night";
     const wantBoss = phase === "night" && isBossLevel(night);
     if (active && !droneOnRef.current) {
-      startDrone();
+      startDrone(wantBoss);
       droneOnRef.current = true;
       droneIsBossRef.current = wantBoss;
     } else if (!active && droneOnRef.current) {
