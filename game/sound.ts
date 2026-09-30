@@ -133,29 +133,32 @@ export function playJumpscareSting() {
   noiseBurst(ac, now + 0.05, 0.3, 0.35, 500);
 }
 
-export function startDrone() {
+export function startDrone(boss = false) {
   const ac = getCtx();
   if (!ac || droneGain) return;
 
   droneGain = ac.createGain();
   droneGain.gain.setValueAtTime(0, ac.currentTime);
-  droneGain.gain.linearRampToValueAtTime(0.05, ac.currentTime + 2);
+  droneGain.gain.linearRampToValueAtTime(
+    boss ? 0.08 : 0.05,
+    ac.currentTime + 2,
+  );
 
   const filter = ac.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.value = 220;
+  filter.frequency.value = boss ? 160 : 220;
 
   droneOsc1 = ac.createOscillator();
   droneOsc1.type = "sawtooth";
-  droneOsc1.frequency.value = 55;
+  droneOsc1.frequency.value = boss ? 38 : 55;
   droneOsc2 = ac.createOscillator();
   droneOsc2.type = "sawtooth";
-  droneOsc2.frequency.value = 58;
+  droneOsc2.frequency.value = boss ? 40 : 58;
 
   droneLfo = ac.createOscillator();
-  droneLfo.frequency.value = 0.07;
+  droneLfo.frequency.value = boss ? 0.12 : 0.07;
   const lfoGain = ac.createGain();
-  lfoGain.gain.value = 60;
+  lfoGain.gain.value = boss ? 90 : 60;
   droneLfo.connect(lfoGain).connect(filter.frequency);
 
   droneOsc1.connect(filter);

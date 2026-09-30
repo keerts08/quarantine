@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useGameStore } from "@/game/store";
+import { isBossLevel, useGameStore } from "@/game/store";
 import {
   startDrone,
   stopDrone,
@@ -15,17 +15,29 @@ const STINGERS = [playCreak, playDistantThud, playFaintWhisper];
 export default function AmbientDread() {
   const phase = useGameStore((s) => s.phase);
   const droneOnRef = useRef(false);
+  const night = useGameStore((s) => s.night);
+  const droneIsBossRef = useRef(false);
 
   useEffect(() => {
     const active = phase === "day" || phase === "night";
+    const wantBoss = phase === "night" && isBossLevel(night);
     if (active && !droneOnRef.current) {
       startDrone();
       droneOnRef.current = true;
+      droneIsBossRef.current = wantBoss;
     } else if (!active && droneOnRef.current) {
       stopDrone();
       droneOnRef.current = false;
+    } else if (
+      active &&
+      droneOnRef.current &&
+      wantBoss !== droneIsBossRef.current
+    ) {
+      stopDrone();
+      startDrone(wantBoss);
+      droneIsBossRef.current = wantBoss;
     }
-  }, [phase]);
+  }, [phase, night]);
 
   useEffect(() => {
     let timeoutId: number;

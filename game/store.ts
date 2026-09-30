@@ -81,7 +81,7 @@ function spawnPosFor(def: EntryDef): Vec2 {
   }
 }
 
-function isBossLevel(night: number) {
+export function isBossLevel(night: number) {
   return night % 3 === 0;
 }
 

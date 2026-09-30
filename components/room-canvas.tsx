@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   CONTACT_RADIUS,
+  isBossLevel,
   speedMultiplierFor,
   useGameStore,
   weaponStats,
@@ -387,6 +388,11 @@ export default function RoomCanvas() {
         } else {
           blackoutRef.current = null;
         }
+      }
+
+      if (isBossLevel(s.night) && (s.phase === "night" || s.phase === "combat")) {
+        ctx.fillStyle = "rgba(120,10,10,0.1)";
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
       }
 
       swingAnimRef.current = Math.max(0, swingAnimRef.current - 0.14);
