@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { startMusic } from "@/game/sound";
 import AmbientDread from "@/components/ambient-dread";
+import StalkerFootsteps from "@/components/stalker-footsteps";
 
 function UpgradeCard({
   id,
@@ -78,6 +79,7 @@ export default function Home() {
             <JumpscareOverlay />
             <LogToaster />
             <AmbientDread />
+            <StalkerFootsteps />
 
             {hasIntruders && (phase === "day" || phase === "night") && (
               <div className="absolute inset-x-0 top-3 flex justify-center">

@@ -24,7 +24,7 @@ const INTRUDER_RADIUS = 12;
 let wasInContact = false;
 const MAX_LOG = 40;
 const HOLLOW_TOUCH_DAMAGE = 8;
-const WARMUP_SECONDS = 1.8;
+export const WARMUP_SECONDS = 1.8;
 const BOSS_ENTRY_ID: EntryId = "frontDoor";
 
 export const MAX_NIGHT = 10;

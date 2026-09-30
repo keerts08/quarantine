@@ -135,7 +135,7 @@ export function playJumpscareSting() {
 
 export function startDrone() {
   const ac = getCtx();
-  if (!ac || droneGain) return; 
+  if (!ac || droneGain) return;
 
   droneGain = ac.createGain();
   droneGain.gain.setValueAtTime(0, ac.currentTime);
@@ -150,13 +150,13 @@ export function startDrone() {
   droneOsc1.frequency.value = 55;
   droneOsc2 = ac.createOscillator();
   droneOsc2.type = "sawtooth";
-  droneOsc2.frequency.value = 58; 
+  droneOsc2.frequency.value = 58;
 
   droneLfo = ac.createOscillator();
   droneLfo.frequency.value = 0.07;
   const lfoGain = ac.createGain();
   lfoGain.gain.value = 60;
-  droneLfo.connect(lfoGain).connect(filter.frequency); 
+  droneLfo.connect(lfoGain).connect(filter.frequency);
 
   droneOsc1.connect(filter);
   droneOsc2.connect(filter);
@@ -198,4 +198,45 @@ export function playFaintWhisper() {
   const ac = getCtx();
   if (!ac) return;
   noiseBurst(ac, ac.currentTime, 0.6, 0.04, 1800);
+}
+
+export function playFootstep(pan: number, intensity: number) {
+  const ac = getCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  const panner = ac.createStereoPanner();
+  panner.pan.value = Math.max(-1, Math.min(1, pan));
+  panner.connect(ac.destination);
+
+  const freq = 90 - intensity * 20;
+  const vol = 0.05 + intensity * 0.12;
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(freq, now);
+  osc.frequency.exponentialRampToValueAtTime(
+    Math.max(1, freq * 0.6),
+    now + 0.18,
+  );
+  const oscGain = ac.createGain();
+  oscGain.gain.setValueAtTime(vol, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  osc.connect(oscGain).connect(panner);
+  osc.start(now);
+  osc.stop(now + 0.2);
+
+  const bufferSize = Math.floor(ac.sampleRate * 0.06);
+  const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++)
+    data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+  const noise = ac.createBufferSource();
+  noise.buffer = buffer;
+  const filter = ac.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 300;
+  const noiseGain = ac.createGain();
+  noiseGain.gain.setValueAtTime(vol * 0.6, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  noise.connect(filter).connect(noiseGain).connect(panner);
+  noise.start(now);
 }
