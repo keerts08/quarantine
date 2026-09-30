@@ -30,9 +30,9 @@ const BOSS_ENTRY_ID: EntryId = "frontDoor";
 export const MAX_NIGHT = 10;
 
 function maxConcurrentThreats(night: number) {
-  if (night <= 3) return 1;
-  if (night <= 7) return 2;
-  return 3;
+  if (night <= 2) return 2;
+  if (night <= 6) return 3;
+  return 4;
 }
 
 const DAY_DURATION = 25;
@@ -231,7 +231,7 @@ function barricadeCostFor(level: BarricadeLevel, handsLevel: number) {
 function nightConfig(night: number): NightConfig {
   return {
     night,
-    pressure: 6 + (night - 1) * 2.4,
+    pressure: 8 + (night - 1) * 2.8,
     duration: 55 + (night - 1) * 6,
     aggression: 0.5,
   };
@@ -526,7 +526,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         continue;
       }
 
-      const mitigation = 1 / (1 + e.barricadeLevel * 1.3);
+      const mitigation = 1 / (1 + e.barricadeLevel * 1.0);
       const jitter = 0.85 + Math.random() * 0.3;
       const decay = cfg.pressure * mitigation * jitter * dt;
       const nextIntegrity = e.integrity - decay;
@@ -536,6 +536,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         candidates.push({ id: def.id, level: e.barricadeLevel });
       } else {
         entries[def.id] = { ...e, integrity: nextIntegrity };
+      }
+
+      const max = BARRICADE_MAX_INTEGRITY[e.barricadeLevel];
+      const prevPct = e.integrity / max;
+      const nextPct = Math.max(0, nextIntegrity) / max;
+      if (prevPct > 0.5 && nextPct <= 0.5) {
+        logLines.push(`The ${def.label}'s barricade is straining.`)
+      } else if (prevPct > 0.2 && nextPct <= 0.2) {
+        logLines.push(`The ${def.label}'s barricade is about to give way!`)
       }
     }
     candidates.sort((a, b) => a.level - b.level);

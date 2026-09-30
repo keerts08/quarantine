@@ -16,8 +16,16 @@ const WARN_PREFIXES = [
 ];
 
 function toneFor(line: string): "error" | "warning" | undefined {
-  if (DANGER_PREFIXES.some((p) => line.startsWith(p))) return "error";
-  if (WARN_PREFIXES.some((p) => line.startsWith(p))) return "warning";
+  if (
+    DANGER_PREFIXES.some((p) => line.startsWith(p)) ||
+    line.includes("about to give way")
+  )
+    return "error";
+  if (
+    WARN_PREFIXES.some((p) => line.startsWith(p)) ||
+    line.includes("barricade is straining")
+  )
+    return "warning";
   return undefined;
 }
 
@@ -33,6 +41,7 @@ function iconFor(line: string): string {
     line.startsWith("It claws at you")
   )
     return "/sprites/enemy-hollow.png";
+  if (line.includes("barricade is straining") || line.includes("about to give way")) return "/sprites/enemy-hollow.png"
   if (line.startsWith("You put it down")) return "/sprites/sword-2.png";
   if (line.startsWith("Salvaged")) return "/sprites/icon-boards.png";
   if (line.startsWith("Reinforced") || line.startsWith("You drive it back"))
@@ -52,7 +61,9 @@ function shortLabelFor(line: string): string {
     line.startsWith("The chamber is overrun")
   )
     return "It got in";
-  if (line.startsWith("You put it down")) return "Killed it";
+  if (line.includes("barricade is straining")) return "Straining";
+  if (line.includes("about to give way")) return "About to break!";
+    if (line.startsWith("You put it down")) return "Killed it";
   if (line.startsWith("Salvaged"))
     return line.replace("Salvaged ", "+").replace(/boards?\.$/, "boards");
   if (line.startsWith("Reinforced")) return "Reinforced";
