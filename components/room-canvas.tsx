@@ -25,7 +25,7 @@ import { distToRect, dist } from "@/game/physics";
 import { drawEntry } from "./entry-art";
 import { drawPlayer } from "./player-art";
 import { drawHollow } from "./hollow-art";
-import { playBang, playKnock, playStrain } from "@/game/sound";
+import { playBang, playKnock, playLightsOut, playStrain } from "@/game/sound";
 import { getSprite, isSpriteReady } from "@/game/sprites";
 import type { MaterialPile, Vec2 } from "@/game/types";
 
@@ -91,6 +91,26 @@ export default function RoomCanvas() {
   const intruderFxRef = useRef<
     Map<string, { flinch: number; knockback: number; lastHp: number }>
   >(new Map());
+  const blackoutRef = useRef<{ start: number; duration: number }>(null);
+
+  useEffect(() => {
+    let timeoutId: number;
+    function scheduleNext() {
+      const delay = 45000 + Math.random() * 45000;
+      timeoutId = window.setTimeout(() => {
+        if (useGameStore.getState().phase === "night") {
+          blackoutRef.current = {
+            start: performance.now(),
+            duration: 4000 + Math.random() * 2000,
+          };
+          playLightsOut();
+        }
+        scheduleNext();
+      }, delay);
+    }
+    scheduleNext();
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     let prevPhase = useGameStore.getState().phase;
@@ -345,6 +365,28 @@ export default function RoomCanvas() {
 
       for (const id of intruderFxRef.current.keys()) {
         if (!seenIds.has(id)) intruderFxRef.current.delete(id);
+      }
+
+      if (blackoutRef.current) {
+        const elapsed = performance.now() - blackoutRef.current.start;
+        if (elapsed < blackoutRef.current.duration) {
+          ctx.save();
+          const blackout = ctx.createRadialGradient(
+            posRef.current.x,
+            posRef.current.y,
+            40,
+            posRef.current.x,
+            posRef.current.y,
+            150,
+          );
+          blackout.addColorStop(0, "rgba(0,0,0,0)");
+          blackout.addColorStop(1, "rgba(0,0,0,0.97)");
+          ctx.fillStyle = blackout;
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          ctx.restore();
+        } else {
+          blackoutRef.current = null;
+        }
       }
 
       swingAnimRef.current = Math.max(0, swingAnimRef.current - 0.14);

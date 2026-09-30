@@ -240,3 +240,11 @@ export function playFootstep(pan: number, intensity: number) {
   noise.connect(filter).connect(noiseGain).connect(panner);
   noise.start(now);
 }
+
+export function playLightsOut() {
+  const ac = getCtx();
+  if (!ac) return;
+  const now = ac.currentTime;
+  thud(ac, now, 400, 40, 0.4, 0.25, "sawtooth");
+  noiseBurst(ac, now, 0.15, 0.2, 2000);
+}
