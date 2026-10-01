@@ -29,6 +29,7 @@ import { drawHollow } from "./hollow-art";
 import { playBang, playKnock, playLightsOut, playStrain } from "@/game/sound";
 import { getSprite, isSpriteReady } from "@/game/sprites";
 import type { MaterialPile, Vec2 } from "@/game/types";
+import { isDrillHolding } from "@/game/drill-input";
 
 const CHEST_ANIM_MS = 500;
 const CHEST_ANIM_FRAMES = [89, 90, 91, 92];
@@ -266,6 +267,7 @@ export default function RoomCanvas() {
       if (s.phase === "day") s.tickDay(dt);
       if (s.phase === "night") s.tickNight(dt);
       if (s.phase === "combat") s.tickCombat(dt);
+      if (s.phase === "drilling") s.tickDrilling(dt, isDrillHolding());
       if (s.phase === "dawn") s.tickDawn(dt);
       if (s.phase === "day" || s.phase === "night") s.tickIntruders(dt);
       swingCooldownRef.current = Math.max(0, swingCooldownRef.current - dt);
