@@ -28,6 +28,12 @@ export const WARMUP_SECONDS = 1.8;
 const FAKE_ALARM_CHANCE_PER_SEC = 1 / 45;
 const BOSS_ENTRY_ID: EntryId = "frontDoor";
 
+const DRILL_DEPTH_RATE = 0.6;
+const DRILL_WOBBLE_RATE = 1.2;
+const DRILL_COOL_RATE = 0.9;
+const DRILL_MIN_INTEGRITY_FRAC = 0.6;
+const DRILL_MAX_INTEGRITY_FRAC = 1.15;
+
 export const MAX_NIGHT = 10;
 
 function maxConcurrentThreats(night: number) {
@@ -303,6 +309,7 @@ function initialState(): GameState {
     pendingUpgrades: [],
     jumpscareSeq: 0,
     jumpscareKind: "generic",
+    drilling: null,
   };
 }
 
@@ -346,8 +353,9 @@ interface GameStore extends GameState {
   startGame: () => void;
   setPlayerPos: (pos: Vec2) => void;
   collectPile: (pileId: string) => void;
-  upgradeBarricade: (entryId: EntryId) => void;
+  startDrilling: (entryId: EntryId) => void;
   beginNight: () => void;
+  tickDrilling: (dt: number, holding: boolean) => void;
   tickDay: (dt: number) => void;
   tickNight: (dt: number) => void;
   tickCombat: (dt: number) => void;
@@ -416,8 +424,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
     }),
 
-  upgradeBarricade: (entryId) =>
+  startDrilling: (entryId) =>
     set((s) => {
+      if (s.phase !== "day" && s.phase !== "night") return s;
       const entry = s.entries[entryId];
       if (!entry) return s;
       const nextLevel = Math.min(3, entry.barricadeLevel + 1) as BarricadeLevel;
@@ -439,37 +448,53 @@ export const useGameStore = create<GameStore>((set, get) => ({
           ],
         };
       }
-      const hadIntruder =
-        entry.breached && s.intruders.some((i) => i.entryId === entryId);
       return {
         player: { ...s.player, boards: s.player.boards - cost },
-        entries: {
-          ...s.entries,
-          [entryId]: {
-            ...entry,
-            barricadeLevel: nextLevel,
-            breached: false,
-            underAttack: false,
-            fake: false,
-            warmup: 0,
-            respite: 3,
-            integrity: BARRICADE_MAX_INTEGRITY[nextLevel],
-          },
+        phase: "drilling",
+        drilling: {
+          entryId,
+          targetLevel: nextLevel,
+          holeIndex: 0,
+          holesNeeded: 2,
+          depth: 0,
+          wobble: 0,
+          goodHoles: 0,
+          fromPhase: s.phase as "day" | "night",
         },
-        intruders: s.intruders.filter((i) => i.entryId !== entryId),
-        log: [
-          ...s.log.slice(-(MAX_LOG - 1)),
-          `Reinforced the ${def.label} (level ${nextLevel}).`,
-          ...(hadIntruder
-            ? [
-                "You drive it back out through the gap and slam the boards home.",
-              ]
-            : []),
-        ],
       };
     }),
 
   beginNight: () => set((s) => nightfallState(s)),
+
+  tickDrilling: (dt, holding) => {
+    const s = get();
+    if (s.phase !== "drilling" || !s.drilling) return;
+    const d = s.drilling;
+    let depth = d.depth;
+    let wobble = d.wobble;
+    if (holding) {
+      depth = Math.min(1, depth + DRILL_DEPTH_RATE * dt);
+      wobble = Math.min(1, wobble + DRILL_WOBBLE_RATE * dt);
+    } else {
+      wobble = Math.max(0, wobble - DRILL_COOL_RATE * dt);
+    }
+
+    const stripped = wobble >= 1;
+    const finished = depth >= 1;
+
+    if (stripped || finished) {
+      const holeIndex = d.holeIndex + 1;
+      const goodHoles = d.goodHoles + (finished && !stripped ? 1 : 0);
+      if (holeIndex >= d.holesNeeded) {
+        finishDrilling(s, d.entryId, d.targetLevel, goodHoles, d.holesNeeded);
+        return;
+      }
+      set({ drilling: { ...d, holeIndex, goodHoles, depth: 0, wobble: 0 } });
+      return;
+    }
+
+    set({ drilling: { ...d, depth, wobble } });
+  },
 
   tickDay: (dt) => {
     const s = get();
@@ -517,7 +542,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
           const nextWarmup = e.warmup - dt;
           if (nextWarmup <= 0) {
             if (e.fake) {
-              entries[def.id] = { ...e, underAttack: false, warmup: -1, fake: false };
+              entries[def.id] = {
+                ...e,
+                underAttack: false,
+                warmup: -1,
+                fake: false,
+              };
             } else {
               entries[def.id] = { ...e, warmup: -1 };
               newlyReady.push(def.id);
@@ -1025,6 +1055,57 @@ function resolveCombatLose(finishedCombat: CombatState) {
       ...s.log.slice(-(MAX_LOG - 1)),
       `It broke through the ${def.label}!`,
       ...(gameover ? ["The chamber is overrun. It gets in."] : []),
+    ],
+  });
+}
+
+function finishDrilling(
+  s: GameState,
+  entryId: EntryId,
+  targetLevel: BarricadeLevel,
+  goodHoles: number,
+  holesNeeded: number,
+) {
+  const entry = s.entries[entryId];
+  const def = ENTRY_DEFS.find((d) => d.id === entryId)!;
+  const quality = holesNeeded > 0 ? goodHoles / holesNeeded : 1;
+  const integrityFrac =
+    DRILL_MIN_INTEGRITY_FRAC +
+    (DRILL_MAX_INTEGRITY_FRAC - DRILL_MAX_INTEGRITY_FRAC) * quality;
+  const integrity = BARRICADE_MAX_INTEGRITY[targetLevel] * integrityFrac;
+  const hadIntruder =
+    entry.breached && s.intruders.some((i) => i.entryId === entryId);
+
+  const qualityLine =
+    goodHoles >= holesNeeded
+      ? "Both screws went in clean — it'll hold better than usual."
+      : goodHoles === 0
+        ? "Both screws stripped. It'll hold, but barely."
+        : "One screw stripped, but it'll hold.";
+
+  useGameStore.setState({
+    phase: s.drilling?.fromPhase ?? "day",
+    drilling: null,
+    entries: {
+      ...s.entries,
+      [entryId]: {
+        ...entry,
+        barricadeLevel: targetLevel,
+        breached: false,
+        underAttack: false,
+        warmup: 0,
+        fake: false,
+        respite: 3,
+        integrity,
+      },
+    },
+    intruders: s.intruders.filter((i) => i.entryId !== entryId),
+    log: [
+      ...s.log.slice(-(MAX_LOG - 1)),
+      `Reinforced the ${def.label} (level ${targetLevel}). ${qualityLine}`,
+      ...(hadIntruder
+        ? ["You drive it back out through the gap and slam the boards home."]
+        : []),
     ],
   });
 }

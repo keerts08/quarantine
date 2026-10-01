@@ -82,7 +82,18 @@ export interface Intruder {
 }
 
 export type Phase =
-  "title" | "day" | "night" | "combat" | "dawn" | "gameover" | "victory";
+  "title" | "day" | "night" | "combat" | "drilling" | "dawn" | "gameover" | "victory";
+
+export interface DrillingState {
+  entryId: EntryId;
+  targetLevel: BarricadeLevel;
+  holeIndex: number;
+  holesNeeded: number;
+  depth: number;
+  wobble: number;
+  goodHoles: number;
+  fromPhase: "day" | "night";
+}
 
 export interface CombatState {
   entryId: EntryId;
@@ -140,4 +151,5 @@ export interface GameState {
   pendingUpgrades: UpgradeId[];
   jumpscareSeq: number;
   jumpscareKind: "generic" | "wood";
+  drilling: DrillingState | null;
 }

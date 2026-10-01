@@ -152,7 +152,7 @@ export default function RoomCanvas() {
 
   const findNearby = useCallback(() => {
     const s = useGameStore.getState();
-    if (s.phase === "combat") return null;
+    if (s.phase === "combat" || s.phase === "drilling") return null;
 
     let best: { kind: "pile" | "entry"; id: string; d: number } | null = null;
 
@@ -183,7 +183,7 @@ export default function RoomCanvas() {
     if (!nearby) return;
     const s = useGameStore.getState();
     if (nearby.kind === "pile") s.collectPile(nearby.id);
-    else s.upgradeBarricade(nearby.id as (typeof ENTRY_DEFS)[number]["id"]);
+    else s.startDrilling(nearby.id as (typeof ENTRY_DEFS)[number]["id"]);
   }, [findNearby]);
 
   useEffect(() => {
@@ -390,9 +390,12 @@ export default function RoomCanvas() {
         }
       }
 
-      if (isBossLevel(s.night) && (s.phase === "night" || s.phase === "combat")) {
+      if (
+        isBossLevel(s.night) &&
+        (s.phase === "night" || s.phase === "combat")
+      ) {
         ctx.fillStyle = "rgba(120,10,10,0.1)";
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       }
 
       swingAnimRef.current = Math.max(0, swingAnimRef.current - 0.14);
