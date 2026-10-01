@@ -1071,7 +1071,7 @@ function finishDrilling(
   const quality = holesNeeded > 0 ? goodHoles / holesNeeded : 1;
   const integrityFrac =
     DRILL_MIN_INTEGRITY_FRAC +
-    (DRILL_MAX_INTEGRITY_FRAC - DRILL_MAX_INTEGRITY_FRAC) * quality;
+    (DRILL_MAX_INTEGRITY_FRAC - DRILL_MIN_INTEGRITY_FRAC) * quality;
   const integrity = BARRICADE_MAX_INTEGRITY[targetLevel] * integrityFrac;
   const hadIntruder =
     entry.breached && s.intruders.some((i) => i.entryId === entryId);
