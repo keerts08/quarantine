@@ -49,7 +49,7 @@ Start the development server:
 npm run dev
 ```
 
-Open the local URL shown in your terminal (usually `http://localhost:3000`) to access digiflority.
+Open the local URL shown in your terminal (usually `http://localhost:3000`) to access qarantine.
 
 ## Help
 
